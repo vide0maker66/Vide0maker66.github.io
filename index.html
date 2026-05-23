@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VideoLyric_Win95.exe</title>
+    <style>
+        /* TEMA WINDOWS 95 */
+        body { 
+            background-color: #008080; /* Warna Teal klasik Win95 */
+            font-family: 'Courier New', Courier, monospace; 
+            display: flex; 
+            justify-content: center; 
+            padding: 20px; 
+            margin: 0;
+        }
+        .win-window { 
+            background: #c0c0c0; 
+            border-top: 2px solid #fff;
+            border-left: 2px solid #fff;
+            border-right: 2px solid #000;
+            border-bottom: 2px solid #000;
+            padding: 2px; 
+            width: 100%;
+            max-width: 700px; 
+            box-shadow: 2px 2px 0 rgba(0,0,0,0.5); 
+        }
+        .title-bar { 
+            background: #000080; 
+            color: white; 
+            padding: 4px 6px; 
+            font-weight: bold; 
+            font-family: 'Verdana', sans-serif;
+            font-size: 14px;
+            /* Dihapus: Tombol X sesuai permintaan */
+        }
+        .content { 
+            padding: 15px; 
+        }
+        .form-group {
+            margin-bottom: 12px;
+        }
+        label { 
+            display: block; 
+            margin-bottom: 4px; 
+            font-weight: bold; 
+        }
+        textarea, select, input[type="file"] { 
+            width: 100%; 
+            padding: 6px;
+            background: #fff; 
+            border-top: 2px solid #000;
+            border-left: 2px solid #000;
+            border-right: 2px solid #fff;
+            border-bottom: 2px solid #fff;
+            box-sizing: border-box;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        textarea { 
+            height: 100px; 
+            resize: vertical; 
+        }
+        button { 
+            background: #c0c0c0; 
+            border-top: 2px solid #fff;
+            border-left: 2px solid #fff;
+            border-right: 2px solid #000;
+            border-bottom: 2px solid #000;
+            padding: 8px 15px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            width: 100%;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button:active { 
+            border-top: 2px solid #000;
+            border-left: 2px solid #000;
+            border-right: 2px solid #fff;
+            border-bottom: 2px solid #fff;
+        }
+        button:disabled {
+            color: #808080;
+            cursor: not-allowed;
+        }
+        .preview-container {
+            margin-top: 15px;
+            background: #000;
+            border-top: 2px solid #000;
+            border-left: 2px solid #000;
+            border-right: 2px solid #fff;
+            border-bottom: 2px solid #fff;
+        }
+        canvas { 
+            display: block; 
+            width: 100%; 
+            height: auto;
+        }
+        #status { 
+            margin-top: 10px; 
+            font-weight: bold; 
+            color: #000080; 
+        }
+    </style>
+</head>
+<body>
+
+<div class="win-window">
+    <div class="title-bar">VideoLyric_Win95.exe</div>
+    <div class="content">
+        <div class="form-group">
+            <label>1. Muat Gambar (Bisa banyak):</label>
+            <input type="file" id="imgInput" multiple accept="image/*">
+        </div>
+        
+        <div class="form-group">
+            <label>2. Lirik (Pisahkan per scene dengan Enter):</label>
+            <!-- Lirik default dengan vibe nu-metal/dark -->
+            <textarea id="lyricInput" placeholder="Ketik lirik...">Terperangkap dalam ruang hampa&#10;Bayangan ini mulai memudar&#10;Abadi dalam pikiran</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label>3. Tema Visual:</label>
+            <select id="themeSelect">
+                <option value="none">Normal (Tidak ada efek)</option>
+                <option value="horror">Horror (Merah Darah & Kontras Tinggi)</option>
+                <option value="vhs">VHS Glitch (Rusak & Berwarna Aneh)</option>
+                <option value="retro">Retro (Sepia Jadul)</option>
+                <option value="mono">Monochrome (Hitam Putih Gelap)</option>
+            </select>
+        </div>
+
+        <button id="runBtn">Mulai Render Video</button>
+        <div id="status">Status: Menunggu instruksi...</div>
+
+        <div class="preview-container">
+            <canvas id="canvas" width="854" height="480"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+    const imgInput = document.getElementById('imgInput');
+    const lyricInput = document.getElementById('lyricInput');
+    const themeSelect = document.getElementById('themeSelect');
+    const runBtn = document.getElementById('runBtn');
+    const statusText = document.getElementById('status');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const DURATION_PER_LINE = 3000; // 3 detik per baris lirik
+    const FPS = 30;
+
+    // Fungsi utilitas untuk memuat gambar
+    const loadImage = (file) => {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = URL.createObjectURL(file);
+        });
+    };
+
+    // Fungsi menerapkan tema menggunakan Canvas Filter
+    function applyThemeFilter(theme) {
+        if (theme === 'horror') return 'contrast(1.6) brightness(0.7) sepia(1) hue-rotate(-50deg) saturate(3)';
+        if (theme === 'vhs') return 'saturate(2.5) contrast(1.2) hue-rotate(90deg) blur(1px)';
+        if (theme === 'retro') return 'sepia(0.8) contrast(1.2) brightness(0.9)';
+        if (theme === 'mono') return 'grayscale(1) contrast(1.5) brightness(0.8)';
+        return 'none';
+    }
+
+    // Fungsi menggambar background agar proporsional
+    function drawBackground(img, theme) {
+        ctx.filter = applyThemeFilter(theme);
+        
+        const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
+        const x = (canvas.width / 2) - (img.width / 2) * scale;
+        const y = (canvas.height / 2) - (img.height / 2) * scale;
+        
+        // Efek transisi opacity acak (bergetar sedikit) untuk tema selain normal
+        if(theme !== 'none') {
+            ctx.globalAlpha = 0.8 + Math.random() * 0.2;
+        } else {
+            ctx.globalAlpha = 1.0;
+        }
+
+        ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+        
+        // Reset filter & alpha untuk persiapan menggambar teks
+        ctx.filter = 'none';
+        ctx.globalAlpha = 1.0;
+        
+        // Gelapkan sedikit agar teks selalu terbaca
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // Fungsi menggambar teks Kinetik dengan Word Wrap
+    function drawKineticText(text) {
+        const words = text.split(' ');
+        const maxWidth = canvas.width - 100;
+        
+        let lines = [];
+        let currentLine = [];
+        let currentLineWidth = 0;
+        let maxHeightInLine = 0;
+
+        // 1. Logika Word Wrap (Susun Otomatis) & Penentuan Ukuran Font
+        words.forEach((word, index) => {
+            // ATURAN: Kata pertama atau kata yang sendirian = SANGAT BESAR
+            const isFirstWord = (index === 0);
+            const fontSize = isFirstWord ? 110 : 55; 
+            
+            ctx.font = `900 ${fontSize}px "Courier New", monospace`;
+            const wordWidth = ctx.measureText(word + ' ').width;
+
+            if (currentLineWidth + wordWidth > maxWidth && currentLine.length > 0) {
+                // Pindah baris
+                lines.push({ words: currentLine, width: currentLineWidth, height: maxHeightInLine });
+                currentLine = [{ word, fontSize, width: wordWidth }];
+                currentLineWidth = wordWidth;
+                maxHeightInLine = fontSize;
+            } else {
+                // Masih muat di baris yang sama
+                currentLine.push({ word, fontSize, width: wordWidth });
+                currentLineWidth += wordWidth;
+                if (fontSize > maxHeightInLine) maxHeightInLine = fontSize;
+            }
+        });
+        if (currentLine.length > 0) lines.push({ words: currentLine, width: currentLineWidth, height: maxHeightInLine });
+
+        // 2. Proses Menggambar ke Canvas
+        const totalHeight = lines.reduce((sum, line) => sum + line.height + 20, 0);
+        let startY = (canvas.height - totalHeight) / 2 + lines[0].height;
+
+        lines.forEach(line => {
+            let startX = (canvas.width - line.width) / 2;
+
+            line.words.forEach(data => {
+                ctx.font = `900 ${data.fontSize}px "Courier New", monospace`;
+                
+                // Styling: Teks Jelas dengan Outline Tebal
+                ctx.fillStyle = '#ffffff'; // Teks Putih
+                ctx.strokeStyle = '#000000'; // Pinggiran Hitam
+                ctx.lineWidth = 8; // Ketebalan outline
+                ctx.lineJoin = 'round'; // Agar sudut outline halus tidak tajam menembus huruf
+
+                // Gambar outline dulu, baru teks putih di atasnya
+                ctx.strokeText(data.word, startX, startY);
+                ctx.fillText(data.word, startX, startY);
+
+                startX += data.width;
+            });
+            startY += line.height + 20; // Jarak antar baris
+        });
+    }
+
+    // Proses Utama Render & Download
+    runBtn.addEventListener('click', async () => {
+        const files = imgInput.files;
+        const lyricsRaw = lyricInput.value.trim();
+        const selectedTheme = themeSelect.value;
+
+        if (files.length === 0) return alert("Harap muat setidaknya 1 gambar.");
+        if (!lyricsRaw) return alert("Harap masukkan lirik lagu.");
+
+        runBtn.disabled = true;
+        statusText.innerText = "Status: Memuat gambar ke memori...";
+
+        try {
+            // Load gambar
+            let loadedImages = [];
+            for (let file of files) {
+                loadedImages.push(await loadImage(file));
+            }
+
+            const lyricLines = lyricsRaw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            const totalDuration = lyricLines.length * DURATION_PER_LINE;
+
+            statusText.innerText = "Status: Merekam video... Mohon jangan tutup tab ini.";
+
+            // Persiapan MediaRecorder
+            const stream = canvas.captureStream(FPS);
+            const mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+            const chunks = [];
+
+            mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+            
+            mediaRecorder.onstop = () => {
+                statusText.innerText = "Status: Pemrosesan selesai. Memulai unduhan...";
+                const blob = new Blob(chunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'Video_Lirik_Win95.webm';
+                document.body.appendChild(a);
+                a.click();
+                
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    runBtn.disabled = false;
+                    statusText.innerText = "Status: Unduhan berhasil.";
+                }, 100);
+            };
+
+            // Mulai perekaman
+            mediaRecorder.start();
+            let startTime = performance.now();
+
+            // Loop Animasi menggunakan requestAnimationFrame agar timingnya presisi
+            const animate = (currentTime) => {
+                const elapsedTime = currentTime - startTime;
+
+                if (elapsedTime > totalDuration) {
+                    mediaRecorder.stop();
+                    return; // Mengakhiri render
+                }
+
+                // Kalkulasi frame saat ini
+                const currentLineIndex = Math.floor(elapsedTime / DURATION_PER_LINE);
+                const currentImageIndex = currentLineIndex % loadedImages.length;
+
+                // Bersihkan frame lama
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // 1. Render Background & Tema
+                if (loadedImages[currentImageIndex]) {
+                    drawBackground(loadedImages[currentImageIndex], selectedTheme);
+                }
+
+                // 2. Render Teks
+                const currentText = lyricLines[currentLineIndex];
+                if (currentText) {
+                    drawKineticText(currentText);
+                }
+
+                requestAnimationFrame(animate);
+            };
+
+            requestAnimationFrame(animate);
+
+        } catch (err) {
+            console.error(err);
+            alert("Terjadi kesalahan sistem.");
+            runBtn.disabled = false;
+        }
+    });
+</script>
+</body>
+</html>
