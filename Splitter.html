@@ -15,7 +15,6 @@
       --field:#ffffff;
       --text:#000000;
       --blue:#0000ff;
-      --blueSoft:#7aa7ff;
     }
 
     *{ box-sizing:border-box; }
@@ -311,15 +310,6 @@
       font-size:12px;
     }
 
-    .footerbar{
-      display:flex;
-      justify-content:space-between;
-      gap:8px;
-      flex-wrap:wrap;
-      font-size:12px;
-      color:#222;
-    }
-
     .kbd{
       border:1px solid #666;
       background:#efefef;
@@ -402,7 +392,6 @@
             <h3>Ekspor</h3>
             <div class="btnrow">
               <button id="downloadZip" class="primary hidden">Download ZIP</button>
-              <button id="downloadAll" class="hidden">Download PNG</button>
             </div>
             <div class="small" style="margin-top:8px;">
               Nama file: <span class="kbd">part-01.png</span>, <span class="kbd">part-02.png</span>, dst.
@@ -450,7 +439,6 @@
       gap: $("gap"),
       split: $("split"),
       downloadZip: $("downloadZip"),
-      downloadAll: $("downloadAll"),
       status: $("status"),
       resultHeader: $("resultHeader"),
       resultCount: $("resultCount"),
@@ -587,7 +575,6 @@
       }
 
       const radius = 8;
-      const strokeRadius = 8;
       for(let i=0; i<gridState.xs.length; i++){
         for(let j=0; j<gridState.ys.length; j++){
           const x = gridState.xs[i] * previewScale;
@@ -675,7 +662,6 @@
         setStatus(`Gambar dimuat: <strong>${sourceW}×${sourceH}</strong>.`);
         URL.revokeObjectURL(url);
         els.downloadZip.disabled = true;
-        els.downloadAll.disabled = true;
       };
       img.onerror = () => {
         setStatus("Gagal membaca gambar.");
@@ -750,6 +736,18 @@
       }
     });
 
+    function triggerDownload(blob, filename) {
+      const a = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.download = filename;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+
     els.split.addEventListener("click", async () => {
       if(!sourceImage || !gridState) return;
 
@@ -761,7 +759,6 @@
       els.resultHeader.classList.remove("hidden");
       els.exportBox.classList.remove("hidden");
       els.downloadZip.classList.add("hidden");
-      els.downloadAll.classList.add("hidden");
 
       setStatus("Memotong gambar...");
 
@@ -824,14 +821,7 @@
           const dl = document.createElement("button");
           dl.textContent = "Download";
           dl.addEventListener("click", () => {
-            const a = document.createElement("a");
-            const url = URL.createObjectURL(blob);
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setTimeout(() => URL.revokeObjectURL(url), 1200);
+            triggerDownload(blob, filename);
           });
 
           btnRow.appendChild(dl);
@@ -845,7 +835,6 @@
       els.resultCount.textContent = `${cropResults.length} bagian`;
       if(cropResults.length){
         els.downloadZip.classList.remove("hidden");
-        els.downloadAll.classList.remove("hidden");
         setStatus(`Selesai. Ada <strong>${cropResults.length}</strong> potongan.`);
       }else{
         setStatus("Tidak ada area yang bisa dipotong.");
@@ -854,8 +843,15 @@
 
     els.downloadZip.addEventListener("click", async () => {
       if(!cropResults.length) return;
+
+      if(typeof JSZip === "undefined"){
+        setStatus("JSZip belum termuat. ZIP tidak bisa dibuat saat ini.");
+        return;
+      }
+
       const baseName = getBaseFileName();
       setStatus("Menyiapkan ZIP...");
+
       try{
         const zip = new JSZip();
         const folder = zip.folder(`${baseName}-parts`);
@@ -863,36 +859,12 @@
           folder.file(item.filename, item.blob);
         }
         const blob = await zip.generateAsync({ type:"blob" });
-        const a = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        a.href = url;
-        a.download = `${baseName}-parts.zip`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1200);
+        triggerDownload(blob, `${baseName}-parts.zip`);
         setStatus(`ZIP siap diunduh berisi <strong>${cropResults.length}</strong> gambar.`);
       }catch(err){
         console.error(err);
         setStatus("Gagal membuat ZIP.");
       }
-    });
-
-    els.downloadAll.addEventListener("click", async () => {
-      if(!cropResults.length) return;
-      setStatus("Mengunduh PNG satu per satu...");
-      for(const item of cropResults){
-        const a = document.createElement("a");
-        const url = URL.createObjectURL(item.blob);
-        a.href = url;
-        a.download = item.filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        await new Promise(r => setTimeout(r, 180));
-        setTimeout(() => URL.revokeObjectURL(url), 1200);
-      }
-      setStatus(`Semua PNG sudah dipicu untuk diunduh (${cropResults.length} file).`);
     });
 
     // Drag grid from inside area, not from circles
