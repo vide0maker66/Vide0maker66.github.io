@@ -1,230 +1,890 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Line Splitter 95</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Grid Splitter 95</title>
+  <style>
+    :root{
+      --bg:#c0c0c0;
+      --panel:#c0c0c0;
+      --light:#ffffff;
+      --shadow:#808080;
+      --dark:#000000;
+      --title:#000080;
+      --titleText:#ffffff;
+      --field:#ffffff;
+    }
 
-<style>
-body{
-  margin:0;
-  font-family:Tahoma;
-  background:#c0c0c0;
-}
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family: Tahoma, Verdana, Arial, sans-serif;
+      color:#000;
+      background:
+        linear-gradient(45deg, rgba(255,255,255,.08) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(255,255,255,.08) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(255,255,255,.08) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,.08) 75%),
+        var(--bg);
+      background-size: 24px 24px;
+      -webkit-tap-highlight-color: transparent;
+    }
 
-.window{
-  border:2px solid white;
-  box-shadow: inset 1px 1px white, inset -1px -1px gray;
-  margin:10px;
-}
+    .app{
+      width:min(1240px, 100%);
+      margin:0 auto;
+      padding:10px;
+    }
 
-.titlebar{
-  background:#000080;
-  color:white;
-  padding:6px;
-  font-weight:bold;
-}
+    .window{
+      border:2px solid var(--light);
+      box-shadow:
+        inset 1px 1px 0 var(--light),
+        inset -1px -1px 0 var(--shadow),
+        2px 2px 0 rgba(0,0,0,.18);
+      background:var(--panel);
+      overflow:hidden;
+    }
 
-.content{
-  padding:10px;
-}
+    .titlebar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:8px 10px;
+      color:var(--titleText);
+      background:linear-gradient(90deg, #000080, #1084d0);
+      font-weight:700;
+      font-size:16px;
+      user-select:none;
+    }
 
-button{
-  border:2px solid;
-  border-color:white gray gray white;
-  background:#c0c0c0;
-  padding:8px;
-  width:100%;
-  margin-top:5px;
-}
+    .title-left{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      min-width:0;
+    }
 
-canvas{
-  max-width:100%;
-  border:1px solid black;
-  margin-top:10px;
-}
+    .icon{
+      width:16px;
+      height:16px;
+      flex:0 0 auto;
+      border:1px solid #fff;
+      background:
+        linear-gradient(135deg, #fff 0 25%, #000080 25% 50%, #fff 50% 75%, #000080 75% 100%);
+    }
 
-.grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
-  gap:10px;
-  margin-top:10px;
-}
-</style>
+    .chip{
+      flex:0 0 auto;
+      font-size:12px;
+      padding:3px 8px;
+      border:1px solid rgba(255,255,255,.45);
+      border-radius:999px;
+      opacity:.95;
+    }
+
+    .content{
+      display:grid;
+      grid-template-columns: 360px 1fr;
+      gap:10px;
+      padding:10px;
+    }
+
+    .panel{
+      min-width:0;
+      border:2px solid;
+      border-color: var(--light) var(--shadow) var(--shadow) var(--light);
+      background:#d4d0c8;
+      padding:10px;
+    }
+
+    .group{
+      margin-bottom:10px;
+      padding:8px;
+      border:2px solid;
+      border-color: var(--shadow) var(--light) var(--light) var(--shadow);
+      background:#d4d0c8;
+    }
+
+    .group h3{
+      margin:0 0 8px;
+      font-size:13px;
+      font-weight:700;
+    }
+
+    .row{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      margin-bottom:10px;
+    }
+
+    label{
+      font-size:13px;
+      line-height:1.2;
+    }
+
+    input[type="file"],
+    input[type="number"]{
+      width:100%;
+      font:inherit;
+      font-size:13px;
+    }
+
+    input[type="number"]{
+      border:2px solid;
+      border-color: var(--shadow) var(--light) var(--light) var(--shadow);
+      background:var(--field);
+      padding:8px;
+      outline:none;
+    }
+
+    input[type="range"]{
+      width:100%;
+      accent-color:#000080;
+    }
+
+    .small{
+      font-size:12px;
+      line-height:1.45;
+      color:#222;
+    }
+
+    .note{
+      font-size:12px;
+      line-height:1.45;
+      padding:8px;
+      background:#ece9d8;
+      border:1px solid #999;
+    }
+
+    .btnrow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    button, a.downloadLink{
+      appearance:none;
+      border:2px solid;
+      border-color: var(--light) var(--shadow) var(--shadow) var(--light);
+      background:#c0c0c0;
+      color:#000;
+      font:inherit;
+      font-size:13px;
+      min-height:36px;
+      padding:8px 12px;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      user-select:none;
+    }
+
+    button:hover, a.downloadLink:hover{ background:#d9d9d9; }
+    button:active, a.downloadLink:active{
+      border-color: var(--shadow) var(--light) var(--light) var(--shadow);
+      transform: translateY(1px);
+    }
+
+    button:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+    }
+
+    .primary{
+      font-weight:700;
+    }
+
+    .preview{
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .canvasWrap{
+      position:relative;
+      border:2px solid;
+      border-color: var(--shadow) var(--light) var(--light) var(--shadow);
+      background:#fff;
+      overflow:hidden;
+      min-height:260px;
+      touch-action:none;
+    }
+
+    .baseCanvas,
+    .gridCanvas{
+      position:absolute;
+      left:0;
+      top:0;
+      display:block;
+      width:100%;
+      height:100%;
+    }
+
+    .gridCanvas{
+      pointer-events:auto;
+      cursor:grab;
+    }
+
+    .gridCanvas:active{
+      cursor:grabbing;
+    }
+
+    .empty{
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      padding:24px;
+      font-size:14px;
+      line-height:1.5;
+      color:#333;
+      background:
+        linear-gradient(45deg, #efefef 25%, transparent 25%),
+        linear-gradient(-45deg, #efefef 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #efefef 75%),
+        linear-gradient(-45deg, transparent 75%, #efefef 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+    }
+
+    .hidden{ display:none !important; }
+
+    .status{
+      font-size:13px;
+      min-height:20px;
+      line-height:1.4;
+    }
+
+    .resultsHeader{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .resultsHeader h3{
+      margin:0;
+      font-size:14px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap:10px;
+    }
+
+    .card{
+      border:2px solid;
+      border-color: var(--light) var(--shadow) var(--shadow) var(--light);
+      background:#d4d0c8;
+      padding:8px;
+      min-width:0;
+    }
+
+    .thumb{
+      width:100%;
+      aspect-ratio:1/1;
+      border:1px solid #777;
+      background:
+        linear-gradient(45deg, #ececec 25%, transparent 25%),
+        linear-gradient(-45deg, #ececec 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #ececec 75%),
+        linear-gradient(-45deg, transparent 75%, #ececec 75%);
+      background-size:16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+    }
+
+    .thumb img{
+      max-width:100%;
+      max-height:100%;
+      display:block;
+    }
+
+    .cardMeta{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      margin:8px 0;
+      font-size:12px;
+    }
+
+    .footerbar{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      flex-wrap:wrap;
+      font-size:12px;
+      color:#222;
+    }
+
+    .kbd{
+      border:1px solid #666;
+      background:#efefef;
+      padding:1px 4px;
+      border-radius:3px;
+      font-size:11px;
+    }
+
+    @media (max-width: 920px){
+      .content{
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 520px){
+      .app{ padding:6px; }
+      .titlebar{ padding:7px 8px; font-size:14px; }
+      .chip{ display:none; }
+      .panel{ padding:8px; }
+      .group{ padding:7px; }
+      .grid{ grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+      button, a.downloadLink{ width:100%; }
+      .btnrow{ flex-direction:column; }
+    }
+  </style>
 </head>
-
 <body>
+  <div class="app">
+    <div class="window">
+      <div class="titlebar">
+        <div class="title-left">
+          <div class="icon"></div>
+          <div>Grid Splitter 95</div>
+        </div>
+        <div class="chip">Win95 style • mobile friendly</div>
+      </div>
 
-<div class="window">
-<div class="titlebar">Line Splitter 95</div>
+      <div class="content">
+        <div class="panel">
+          <div class="group">
+            <h3>Masukkan gambar</h3>
+            <div class="row">
+              <input id="file" type="file" accept="image/*" />
+            </div>
+            <div class="note">
+              Potong gambar berdasarkan grid, bukan berdasarkan garis. Grid bisa diatur jumlahnya, ukuran selnya, dan letaknya.
+            </div>
+          </div>
 
-<div class="content">
+          <div class="group">
+            <h3>Atur grid</h3>
 
-<input type="file" id="file"><br>
+            <div class="row">
+              <label for="cols">Jumlah kolom: <strong id="colsLabel">4</strong></label>
+              <input id="cols" type="range" min="1" max="40" value="4" />
+            </div>
 
-<label>Threshold</label>
-<input type="range" id="threshold" min="0" max="255" value="170">
+            <div class="row">
+              <label for="rows">Jumlah baris: <strong id="rowsLabel">4</strong></label>
+              <input id="rows" type="range" min="1" max="40" value="4" />
+            </div>
 
-<label>Dilate</label>
-<input type="range" id="dilate" min="0" max="5" value="1">
+            <div class="row">
+              <label for="cellW">Lebar sel (px gambar): <strong id="cellWLabel">200</strong></label>
+              <input id="cellW" type="range" min="8" max="2000" value="200" />
+            </div>
 
-<label>Min Area</label>
-<input type="range" id="minArea" min="0" max="5000" value="200">
+            <div class="row">
+              <label for="cellH">Tinggi sel (px gambar): <strong id="cellHLabel">200</strong></label>
+              <input id="cellH" type="range" min="8" max="2000" value="200" />
+            </div>
 
-<button onclick="process()">Potong Gambar</button>
-<button onclick="downloadZip()">Download ZIP</button>
+            <div class="row">
+              <label for="offsetX">Posisi grid X (px gambar): <strong id="offsetXLabel">0</strong></label>
+              <input id="offsetX" type="range" min="-2000" max="2000" value="0" />
+            </div>
 
-<canvas id="canvas"></canvas>
+            <div class="row">
+              <label for="offsetY">Posisi grid Y (px gambar): <strong id="offsetYLabel">0</strong></label>
+              <input id="offsetY" type="range" min="-2000" max="2000" value="0" />
+            </div>
 
-<div id="result" class="grid"></div>
+            <div class="row">
+              <label for="gap">Jarak antar sel (px): <strong id="gapLabel">0</strong></label>
+              <input id="gap" type="range" min="0" max="50" value="0" />
+            </div>
 
-</div>
-</div>
+            <div class="small">
+              Grid bisa juga digeser langsung dengan drag di area preview.
+            </div>
+          </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+          <div class="group">
+            <h3>Ekspor hasil</h3>
+            <div class="btnrow">
+              <button id="split" class="primary">Potong sesuai grid</button>
+              <button id="downloadZip" class="primary" disabled>Download ZIP</button>
+              <button id="downloadAll" disabled>Download semua PNG</button>
+              <button id="reset">Reset</button>
+            </div>
+            <div class="small" style="margin-top:8px;">
+              Nama file: <span class="kbd">part-01.png</span>, <span class="kbd">part-02.png</span>, dan seterusnya.
+            </div>
+          </div>
 
-<script>
-let img = new Image();
-let results = [];
+          <div class="group">
+            <h3>Status</h3>
+            <div id="status" class="status">Belum ada gambar dimuat.</div>
+          </div>
+        </div>
 
-document.getElementById("file").onchange = e=>{
-  let file = e.target.files[0];
-  img.src = URL.createObjectURL(file);
-  img.onload = ()=>{
-    let c = canvas;
-    c.width = img.width;
-    c.height = img.height;
-    c.getContext("2d").drawImage(img,0,0);
-  }
-}
+        <div class="preview">
+          <div class="group">
+            <h3>Preview & grid</h3>
+            <div id="canvasWrap" class="canvasWrap">
+              <div id="empty" class="empty">
+                Upload gambar dulu.<br>
+                Setelah itu grid bisa diatur dan digeser langsung di area ini.
+              </div>
+              <canvas id="baseCanvas" class="baseCanvas hidden"></canvas>
+              <canvas id="gridCanvas" class="gridCanvas hidden"></canvas>
+            </div>
+          </div>
 
-function process(){
-  let c = canvas;
-  let ctx = c.getContext("2d");
-  let data = ctx.getImageData(0,0,c.width,c.height);
+          <div class="resultsHeader">
+            <h3>Hasil potongan</h3>
+            <div class="small" id="resultCount">0 bagian</div>
+          </div>
 
-  let threshold = +thresholdEl.value;
-  let dilate = +dilateEl.value;
-  let minArea = +minAreaEl.value;
+          <div id="grid" class="grid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  let mask = new Uint8Array(c.width*c.height);
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
 
-  for(let i=0;i<data.data.length;i+=4){
-    let gray = (data.data[i]+data.data[i+1]+data.data[i+2])/3;
-    mask[i/4] = gray < threshold ? 1 : 0;
-  }
+    const els = {
+      file: $("file"),
+      cols: $("cols"),
+      rows: $("rows"),
+      cellW: $("cellW"),
+      cellH: $("cellH"),
+      offsetX: $("offsetX"),
+      offsetY: $("offsetY"),
+      gap: $("gap"),
 
-  for(let d=0;d<dilate;d++){
-    let m2 = new Uint8Array(mask.length);
-    for(let y=1;y<c.height-1;y++){
-      for(let x=1;x<c.width-1;x++){
-        let i=y*c.width+x;
-        if(mask[i]) m2[i]=1;
-        else{
-          for(let dy=-1;dy<=1;dy++)
-          for(let dx=-1;dx<=1;dx++){
-            if(mask[(y+dy)*c.width+(x+dx)]) m2[i]=1;
+      colsLabel: $("colsLabel"),
+      rowsLabel: $("rowsLabel"),
+      cellWLabel: $("cellWLabel"),
+      cellHLabel: $("cellHLabel"),
+      offsetXLabel: $("offsetXLabel"),
+      offsetYLabel: $("offsetYLabel"),
+      gapLabel: $("gapLabel"),
+
+      split: $("split"),
+      downloadZip: $("downloadZip"),
+      downloadAll: $("downloadAll"),
+      reset: $("reset"),
+
+      status: $("status"),
+      resultCount: $("resultCount"),
+      grid: $("grid"),
+
+      canvasWrap: $("canvasWrap"),
+      empty: $("empty"),
+      baseCanvas: $("baseCanvas"),
+      gridCanvas: $("gridCanvas"),
+    };
+
+    let sourceImage = null;
+    let sourceName = "image";
+    let sourceW = 0;
+    let sourceH = 0;
+    let previewScale = 1;
+    let previewW = 0;
+    let previewH = 0;
+    let cropResults = [];
+
+    function setStatus(msg){
+      els.status.innerHTML = msg;
+    }
+
+    function clamp(v, min, max){
+      return Math.max(min, Math.min(max, v));
+    }
+
+    function syncLabels(){
+      els.colsLabel.textContent = els.cols.value;
+      els.rowsLabel.textContent = els.rows.value;
+      els.cellWLabel.textContent = els.cellW.value;
+      els.cellHLabel.textContent = els.cellH.value;
+      els.offsetXLabel.textContent = els.offsetX.value;
+      els.offsetYLabel.textContent = els.offsetY.value;
+      els.gapLabel.textContent = els.gap.value;
+    }
+
+    function getGridSettings(){
+      return {
+        cols: parseInt(els.cols.value, 10),
+        rows: parseInt(els.rows.value, 10),
+        cellW: parseInt(els.cellW.value, 10),
+        cellH: parseInt(els.cellH.value, 10),
+        offsetX: parseInt(els.offsetX.value, 10),
+        offsetY: parseInt(els.offsetY.value, 10),
+        gap: parseInt(els.gap.value, 10),
+      };
+    }
+
+    function updatePreviewSize(){
+      if(!sourceImage) return;
+      const maxPreview = 1100;
+      previewScale = Math.min(1, maxPreview / Math.max(sourceW, sourceH));
+      previewW = Math.max(1, Math.round(sourceW * previewScale));
+      previewH = Math.max(1, Math.round(sourceH * previewScale));
+
+      [els.baseCanvas, els.gridCanvas].forEach(c => {
+        c.width = previewW;
+        c.height = previewH;
+        c.style.width = "100%";
+        c.style.height = "100%";
+      });
+
+      els.baseCanvas.classList.remove("hidden");
+      els.gridCanvas.classList.remove("hidden");
+      els.empty.classList.add("hidden");
+    }
+
+    function drawPreview(){
+      if(!sourceImage) return;
+
+      const bctx = els.baseCanvas.getContext("2d");
+      bctx.clearRect(0,0,previewW,previewH);
+      bctx.drawImage(sourceImage, 0, 0, previewW, previewH);
+
+      const gctx = els.gridCanvas.getContext("2d");
+      gctx.clearRect(0,0,previewW,previewH);
+
+      const s = getGridSettings();
+
+      gctx.save();
+      gctx.lineWidth = 1;
+      gctx.strokeStyle = "rgba(0,0,0,0.9)";
+      gctx.fillStyle = "rgba(0,0,128,0.08)";
+
+      for(let r=0; r<s.rows; r++){
+        for(let c=0; c<s.cols; c++){
+          const x = (s.offsetX + c * (s.cellW + s.gap)) * previewScale;
+          const y = (s.offsetY + r * (s.cellH + s.gap)) * previewScale;
+          const w = s.cellW * previewScale;
+          const h = s.cellH * previewScale;
+
+          // Fill only if visible
+          if(x + w > 0 && y + h > 0 && x < previewW && y < previewH){
+            gctx.fillRect(x, y, w, h);
+            gctx.strokeRect(x + 0.5, y + 0.5, w, h);
           }
         }
       }
+
+      gctx.restore();
     }
-    mask=m2;
-  }
 
-  let visited=new Uint8Array(mask.length);
-  results=[];
-  result.innerHTML="";
+    function normalizeGridIfNeeded(){
+      if(!sourceImage) return;
+      const s = getGridSettings();
+      const maxPossibleW = Math.max(8, sourceW);
+      const maxPossibleH = Math.max(8, sourceH);
 
-  for(let y=0;y<c.height;y++){
-    for(let x=0;x<c.width;x++){
-      let i=y*c.width+x;
-      if(visited[i]||mask[i]) continue;
+      // Keep cell sizes within reasonable bounds relative to source
+      els.cellW.min = "1";
+      els.cellH.min = "1";
+      els.cellW.max = String(maxPossibleW);
+      els.cellH.max = String(maxPossibleH);
 
-      let queue=[[x,y]];
-      let pixels=[];
-      visited[i]=1;
+      // Ensure offsets slider range can cover image comfortably
+      const maxOffsetX = Math.max(2000, sourceW);
+      const maxOffsetY = Math.max(2000, sourceH);
+      els.offsetX.min = String(-maxOffsetX);
+      els.offsetX.max = String(maxOffsetX);
+      els.offsetY.min = String(-maxOffsetY);
+      els.offsetY.max = String(maxOffsetY);
+    }
 
-      while(queue.length){
-        let [cx,cy]=queue.pop();
-        pixels.push([cx,cy]);
+    function updateAll(){
+      syncLabels();
+      if(sourceImage){
+        drawPreview();
+      }
+    }
 
-        [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx,dy])=>{
-          let nx=cx+dx, ny=cy+dy;
-          if(nx<0||ny<0||nx>=c.width||ny>=c.height) return;
-          let ni=ny*c.width+nx;
-          if(!visited[ni]&&!mask[ni]){
-            visited[ni]=1;
-            queue.push([nx,ny]);
-          }
-        });
+    ["input", "change"].forEach(evt => {
+      [els.cols, els.rows, els.cellW, els.cellH, els.offsetX, els.offsetY, els.gap].forEach(el => {
+        el.addEventListener(evt, updateAll);
+      });
+    });
+
+    function loadFile(file){
+      if(!file) return;
+      sourceName = (file.name || "image").replace(/\.[^.]+$/, "") || "image";
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        sourceImage = img;
+        sourceW = img.naturalWidth || img.width;
+        sourceH = img.naturalHeight || img.height;
+
+        // Default grid: around quarter slicing
+        els.cols.value = Math.max(1, Math.min(8, Math.round(sourceW / 256) || 4));
+        els.rows.value = Math.max(1, Math.min(8, Math.round(sourceH / 256) || 4));
+        els.cellW.value = Math.max(8, Math.round(sourceW / parseInt(els.cols.value, 10)));
+        els.cellH.value = Math.max(8, Math.round(sourceH / parseInt(els.rows.value, 10)));
+        els.offsetX.value = 0;
+        els.offsetY.value = 0;
+        els.gap.value = 0;
+
+        normalizeGridIfNeeded();
+        updatePreviewSize();
+        updateAll();
+        setStatus(`Gambar dimuat: <strong>${sourceW}×${sourceH}</strong>. Grid siap diatur dan bisa digeser.`);
+        URL.revokeObjectURL(url);
+        els.downloadZip.disabled = true;
+        els.downloadAll.disabled = true;
+      };
+      img.onerror = () => {
+        setStatus("Gagal membaca gambar.");
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    }
+
+    els.file.addEventListener("change", e => loadFile(e.target.files[0]));
+
+    els.reset.addEventListener("click", () => {
+      sourceImage = null;
+      sourceW = 0;
+      sourceH = 0;
+      previewScale = 1;
+      previewW = 0;
+      previewH = 0;
+      cropResults = [];
+      els.file.value = "";
+      els.grid.innerHTML = "";
+      els.resultCount.textContent = "0 bagian";
+      els.downloadZip.disabled = true;
+      els.downloadAll.disabled = true;
+      els.baseCanvas.classList.add("hidden");
+      els.gridCanvas.classList.add("hidden");
+      els.empty.classList.remove("hidden");
+      setStatus("Belum ada gambar dimuat.");
+    });
+
+    function makeCropCanvas(img, x, y, w, h){
+      const out = document.createElement("canvas");
+      out.width = w;
+      out.height = h;
+      const ctx = out.getContext("2d");
+      ctx.clearRect(0,0,w,h);
+      ctx.drawImage(img, x, y, w, h, 0, 0, w, h);
+      return out;
+    }
+
+    function downloadBlob(blob, filename){
+      const a = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1200);
+    }
+
+    async function canvasToBlob(canvas, type="image/png"){
+      return new Promise(resolve => canvas.toBlob(resolve, type));
+    }
+
+    async function splitByGrid(){
+      if(!sourceImage){
+        setStatus("Masukkan gambar dulu ya.");
+        return;
       }
 
-      if(pixels.length<minArea) continue;
+      const s = getGridSettings();
+      cropResults = [];
+      els.grid.innerHTML = "";
+      els.resultCount.textContent = "0 bagian";
+      els.downloadZip.disabled = true;
+      els.downloadAll.disabled = true;
 
-      let minX=9999,minY=9999,maxX=0,maxY=0;
-      pixels.forEach(([px,py])=>{
-        if(px<minX)minX=px;
-        if(py<minY)minY=py;
-        if(px>maxX)maxX=px;
-        if(py>maxY)maxY=py;
-      });
+      setStatus("Sedang memotong sesuai grid...");
 
-      let w=maxX-minX+1;
-      let h=maxY-minY+1;
+      let index = 0;
+      for(let r=0; r<s.rows; r++){
+        for(let c=0; c<s.cols; c++){
+          const x1 = s.offsetX + c * (s.cellW + s.gap);
+          const y1 = s.offsetY + r * (s.cellH + s.gap);
+          const x2 = x1 + s.cellW;
+          const y2 = y1 + s.cellH;
 
-      let out=document.createElement("canvas");
-      out.width=w;
-      out.height=h;
-      let octx=out.getContext("2d");
-      let imgData=octx.createImageData(w,h);
+          const sx = clamp(x1, 0, sourceW);
+          const sy = clamp(y1, 0, sourceH);
+          const ex = clamp(x2, 0, sourceW);
+          const ey = clamp(y2, 0, sourceH);
 
-      pixels.forEach(([px,py])=>{
-        let src=(py*c.width+px)*4;
-        let dx=px-minX;
-        let dy=py-minY;
-        let dst=(dy*w+dx)*4;
+          const w = ex - sx;
+          const h = ey - sy;
+          if(w <= 0 || h <= 0) continue;
 
-        imgData.data[dst]=data.data[src];
-        imgData.data[dst+1]=data.data[src+1];
-        imgData.data[dst+2]=data.data[src+2];
-        imgData.data[dst+3]=255;
-      });
+          index++;
+          const cropCanvas = makeCropCanvas(sourceImage, sx, sy, w, h);
+          const blob = await canvasToBlob(cropCanvas, "image/png");
+          const filename = `${sourceName}-part-${String(index).padStart(2, "0")}.png`;
 
-      octx.putImageData(imgData,0,0);
+          cropResults.push({ index, filename, blob, w, h });
 
-      results.push(out);
+          const card = document.createElement("div");
+          card.className = "card";
 
-      let imgEl=new Image();
-      imgEl.src=out.toDataURL();
-      imgEl.onclick=()=>{
-        let a=document.createElement("a");
-        a.href=imgEl.src;
-        a.download="part.png";
-        a.click();
+          const thumb = document.createElement("div");
+          thumb.className = "thumb";
+          const img = document.createElement("img");
+          img.src = URL.createObjectURL(blob);
+          img.alt = filename;
+          thumb.appendChild(img);
+
+          const meta = document.createElement("div");
+          meta.className = "cardMeta";
+          meta.innerHTML = `<span><strong>#${index}</strong></span><span>${w}×${h}</span>`;
+
+          const btnRow = document.createElement("div");
+          btnRow.className = "btnrow";
+
+          const dl = document.createElement("button");
+          dl.textContent = "Download";
+          dl.addEventListener("click", () => downloadBlob(blob, filename));
+
+          btnRow.appendChild(dl);
+          card.appendChild(thumb);
+          card.appendChild(meta);
+          card.appendChild(btnRow);
+          els.grid.appendChild(card);
+        }
       }
 
-      result.appendChild(imgEl);
+      els.resultCount.textContent = `${cropResults.length} bagian`;
+      if(cropResults.length){
+        els.downloadZip.disabled = false;
+        els.downloadAll.disabled = false;
+        setStatus(`Selesai. Ditemukan <strong>${cropResults.length}</strong> potongan.`);
+      }else{
+        setStatus("Tidak ada potongan yang masuk area gambar. Coba geser grid atau ubah ukuran sel.");
+      }
     }
-  }
-}
 
-async function downloadZip(){
-  let zip=new JSZip();
-  for(let i=0;i<results.length;i++){
-    let blob=await new Promise(r=>results[i].toBlob(r));
-    zip.file("part"+i+".png",blob);
-  }
-  let content=await zip.generateAsync({type:"blob"});
-  let a=document.createElement("a");
-  a.href=URL.createObjectURL(content);
-  a.download="images.zip";
-  a.click();
-}
+    els.split.addEventListener("click", splitByGrid);
 
-const thresholdEl=document.getElementById("threshold");
-const dilateEl=document.getElementById("dilate");
-const minAreaEl=document.getElementById("minArea");
-</script>
+    els.downloadZip.addEventListener("click", async () => {
+      if(!cropResults.length) return;
+      els.downloadZip.disabled = true;
+      setStatus("Menyiapkan ZIP...");
+      try{
+        const zip = new JSZip();
+        const folder = zip.folder(`${sourceName}-parts`);
+        for(const item of cropResults){
+          folder.file(item.filename, item.blob);
+        }
+        const blob = await zip.generateAsync({ type:"blob" });
+        downloadBlob(blob, `${sourceName}-parts.zip`);
+        setStatus(`ZIP siap diunduh berisi <strong>${cropResults.length}</strong> gambar.`);
+      }catch(err){
+        console.error(err);
+        setStatus("Gagal membuat ZIP.");
+      }finally{
+        els.downloadZip.disabled = cropResults.length === 0;
+      }
+    });
 
+    els.downloadAll.addEventListener("click", async () => {
+      if(!cropResults.length) return;
+      els.downloadAll.disabled = true;
+      setStatus("Mengunduh semua PNG satu per satu...");
+      try{
+        for(const item of cropResults){
+          downloadBlob(item.blob, item.filename);
+          await new Promise(r => setTimeout(r, 180));
+        }
+        setStatus(`Semua PNG sudah dipicu untuk diunduh (${cropResults.length} file).`);
+      }finally{
+        els.downloadAll.disabled = cropResults.length === 0;
+      }
+    });
+
+    // Drag grid on preview
+    let dragging = false;
+    let dragStart = null;
+
+    function getPointerPos(evt){
+      const rect = els.gridCanvas.getBoundingClientRect();
+      const x = (evt.clientX - rect.left) * (els.gridCanvas.width / rect.width);
+      const y = (evt.clientY - rect.top) * (els.gridCanvas.height / rect.height);
+      return { x, y };
+    }
+
+    els.gridCanvas.addEventListener("pointerdown", (evt) => {
+      if(!sourceImage) return;
+      dragging = true;
+      els.gridCanvas.setPointerCapture(evt.pointerId);
+      const p = getPointerPos(evt);
+      const s = getGridSettings();
+      dragStart = {
+        x: p.x,
+        y: p.y,
+        offsetX: s.offsetX,
+        offsetY: s.offsetY
+      };
+    });
+
+    els.gridCanvas.addEventListener("pointermove", (evt) => {
+      if(!dragging || !dragStart || !sourceImage) return;
+      const p = getPointerPos(evt);
+      const dxPreview = p.x - dragStart.x;
+      const dyPreview = p.y - dragStart.y;
+      const dxImage = Math.round(dxPreview / previewScale);
+      const dyImage = Math.round(dyPreview / previewScale);
+
+      els.offsetX.value = dragStart.offsetX + dxImage;
+      els.offsetY.value = dragStart.offsetY + dyImage;
+      syncLabels();
+      drawPreview();
+    });
+
+    function endDrag(evt){
+      dragging = false;
+      dragStart = null;
+    }
+
+    els.gridCanvas.addEventListener("pointerup", endDrag);
+    els.gridCanvas.addEventListener("pointercancel", endDrag);
+    els.gridCanvas.addEventListener("pointerleave", endDrag);
+
+    // Keep preview aligned on resize
+    window.addEventListener("resize", () => {
+      if(sourceImage){
+        updatePreviewSize();
+        drawPreview();
+      }
+    });
+
+    syncLabels();
+    setStatus("Belum ada gambar dimuat.");
+  </script>
 </body>
 </html>
