@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Line Splitter 95</title>
+
+<style>
+body{
+  margin:0;
+  font-family:Tahoma;
+  background:#c0c0c0;
+}
+
+.window{
+  border:2px solid white;
+  box-shadow: inset 1px 1px white, inset -1px -1px gray;
+  margin:10px;
+}
+
+.titlebar{
+  background:#000080;
+  color:white;
+  padding:6px;
+  font-weight:bold;
+}
+
+.content{
+  padding:10px;
+}
+
+button{
+  border:2px solid;
+  border-color:white gray gray white;
+  background:#c0c0c0;
+  padding:8px;
+  width:100%;
+  margin-top:5px;
+}
+
+canvas{
+  max-width:100%;
+  border:1px solid black;
+  margin-top:10px;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
+  gap:10px;
+  margin-top:10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="window">
+<div class="titlebar">Line Splitter 95</div>
+
+<div class="content">
+
+<input type="file" id="file"><br>
+
+<label>Threshold</label>
+<input type="range" id="threshold" min="0" max="255" value="170">
+
+<label>Dilate</label>
+<input type="range" id="dilate" min="0" max="5" value="1">
+
+<label>Min Area</label>
+<input type="range" id="minArea" min="0" max="5000" value="200">
+
+<button onclick="process()">Potong Gambar</button>
+<button onclick="downloadZip()">Download ZIP</button>
+
+<canvas id="canvas"></canvas>
+
+<div id="result" class="grid"></div>
+
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<script>
+let img = new Image();
+let results = [];
+
+document.getElementById("file").onchange = e=>{
+  let file = e.target.files[0];
+  img.src = URL.createObjectURL(file);
+  img.onload = ()=>{
+    let c = canvas;
+    c.width = img.width;
+    c.height = img.height;
+    c.getContext("2d").drawImage(img,0,0);
+  }
+}
+
+function process(){
+  let c = canvas;
+  let ctx = c.getContext("2d");
+  let data = ctx.getImageData(0,0,c.width,c.height);
+
+  let threshold = +thresholdEl.value;
+  let dilate = +dilateEl.value;
+  let minArea = +minAreaEl.value;
+
+  let mask = new Uint8Array(c.width*c.height);
+
+  for(let i=0;i<data.data.length;i+=4){
+    let gray = (data.data[i]+data.data[i+1]+data.data[i+2])/3;
+    mask[i/4] = gray < threshold ? 1 : 0;
+  }
+
+  for(let d=0;d<dilate;d++){
+    let m2 = new Uint8Array(mask.length);
+    for(let y=1;y<c.height-1;y++){
+      for(let x=1;x<c.width-1;x++){
+        let i=y*c.width+x;
+        if(mask[i]) m2[i]=1;
+        else{
+          for(let dy=-1;dy<=1;dy++)
+          for(let dx=-1;dx<=1;dx++){
+            if(mask[(y+dy)*c.width+(x+dx)]) m2[i]=1;
+          }
+        }
+      }
+    }
+    mask=m2;
+  }
+
+  let visited=new Uint8Array(mask.length);
+  results=[];
+  result.innerHTML="";
+
+  for(let y=0;y<c.height;y++){
+    for(let x=0;x<c.width;x++){
+      let i=y*c.width+x;
+      if(visited[i]||mask[i]) continue;
+
+      let queue=[[x,y]];
+      let pixels=[];
+      visited[i]=1;
+
+      while(queue.length){
+        let [cx,cy]=queue.pop();
+        pixels.push([cx,cy]);
+
+        [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx,dy])=>{
+          let nx=cx+dx, ny=cy+dy;
+          if(nx<0||ny<0||nx>=c.width||ny>=c.height) return;
+          let ni=ny*c.width+nx;
+          if(!visited[ni]&&!mask[ni]){
+            visited[ni]=1;
+            queue.push([nx,ny]);
+          }
+        });
+      }
+
+      if(pixels.length<minArea) continue;
+
+      let minX=9999,minY=9999,maxX=0,maxY=0;
+      pixels.forEach(([px,py])=>{
+        if(px<minX)minX=px;
+        if(py<minY)minY=py;
+        if(px>maxX)maxX=px;
+        if(py>maxY)maxY=py;
+      });
+
+      let w=maxX-minX+1;
+      let h=maxY-minY+1;
+
+      let out=document.createElement("canvas");
+      out.width=w;
+      out.height=h;
+      let octx=out.getContext("2d");
+      let imgData=octx.createImageData(w,h);
+
+      pixels.forEach(([px,py])=>{
+        let src=(py*c.width+px)*4;
+        let dx=px-minX;
+        let dy=py-minY;
+        let dst=(dy*w+dx)*4;
+
+        imgData.data[dst]=data.data[src];
+        imgData.data[dst+1]=data.data[src+1];
+        imgData.data[dst+2]=data.data[src+2];
+        imgData.data[dst+3]=255;
+      });
+
+      octx.putImageData(imgData,0,0);
+
+      results.push(out);
+
+      let imgEl=new Image();
+      imgEl.src=out.toDataURL();
+      imgEl.onclick=()=>{
+        let a=document.createElement("a");
+        a.href=imgEl.src;
+        a.download="part.png";
+        a.click();
+      }
+
+      result.appendChild(imgEl);
+    }
+  }
+}
+
+async function downloadZip(){
+  let zip=new JSZip();
+  for(let i=0;i<results.length;i++){
+    let blob=await new Promise(r=>results[i].toBlob(r));
+    zip.file("part"+i+".png",blob);
+  }
+  let content=await zip.generateAsync({type:"blob"});
+  let a=document.createElement("a");
+  a.href=URL.createObjectURL(content);
+  a.download="images.zip";
+  a.click();
+}
+
+const thresholdEl=document.getElementById("threshold");
+const dilateEl=document.getElementById("dilate");
+const minAreaEl=document.getElementById("minArea");
+</script>
+
+</body>
+</html>
