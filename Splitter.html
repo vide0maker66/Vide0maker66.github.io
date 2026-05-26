@@ -7,28 +7,29 @@
   <style>
     :root{
       --bg:#c0c0c0;
-      --panel:#c0c0c0;
+      --panel:#d4d0c8;
       --light:#ffffff;
       --shadow:#808080;
-      --dark:#000000;
       --title:#000080;
       --titleText:#ffffff;
       --field:#ffffff;
+      --text:#000000;
     }
 
     *{ box-sizing:border-box; }
+
     body{
       margin:0;
       min-height:100vh;
       font-family: Tahoma, Verdana, Arial, sans-serif;
-      color:#000;
+      color:var(--text);
       background:
         linear-gradient(45deg, rgba(255,255,255,.08) 25%, transparent 25%),
         linear-gradient(-45deg, rgba(255,255,255,.08) 25%, transparent 25%),
         linear-gradient(45deg, transparent 75%, rgba(255,255,255,.08) 75%),
         linear-gradient(-45deg, transparent 75%, rgba(255,255,255,.08) 75%),
         var(--bg);
-      background-size: 24px 24px;
+      background-size:24px 24px;
       -webkit-tap-highlight-color: transparent;
     }
 
@@ -54,8 +55,8 @@
       justify-content:space-between;
       gap:10px;
       padding:8px 10px;
-      color:var(--titleText);
       background:linear-gradient(90deg, #000080, #1084d0);
+      color:var(--titleText);
       font-weight:700;
       font-size:16px;
       user-select:none;
@@ -97,7 +98,7 @@
       min-width:0;
       border:2px solid;
       border-color: var(--light) var(--shadow) var(--shadow) var(--light);
-      background:#d4d0c8;
+      background:var(--panel);
       padding:10px;
     }
 
@@ -106,7 +107,7 @@
       padding:8px;
       border:2px solid;
       border-color: var(--shadow) var(--light) var(--light) var(--shadow);
-      background:#d4d0c8;
+      background:var(--panel);
     }
 
     .group h3{
@@ -127,14 +128,16 @@
       line-height:1.2;
     }
 
-    input[type="file"],
-    input[type="number"]{
+    input[type="file"]{
       width:100%;
       font:inherit;
       font-size:13px;
     }
 
     input[type="number"]{
+      width:100%;
+      font:inherit;
+      font-size:13px;
       border:2px solid;
       border-color: var(--shadow) var(--light) var(--light) var(--shadow);
       background:var(--field);
@@ -142,23 +145,10 @@
       outline:none;
     }
 
-    input[type="range"]{
-      width:100%;
-      accent-color:#000080;
-    }
-
     .small{
       font-size:12px;
-      line-height:1.45;
+      line-height:1.4;
       color:#222;
-    }
-
-    .note{
-      font-size:12px;
-      line-height:1.45;
-      padding:8px;
-      background:#ece9d8;
-      border:1px solid #999;
     }
 
     .btnrow{
@@ -167,7 +157,7 @@
       gap:8px;
     }
 
-    button, a.downloadLink{
+    button{
       appearance:none;
       border:2px solid;
       border-color: var(--light) var(--shadow) var(--shadow) var(--light);
@@ -178,20 +168,14 @@
       min-height:36px;
       padding:8px 12px;
       cursor:pointer;
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:6px;
       user-select:none;
     }
 
-    button:hover, a.downloadLink:hover{ background:#d9d9d9; }
-    button:active, a.downloadLink:active{
+    button:hover{ background:#d9d9d9; }
+    button:active{
       border-color: var(--shadow) var(--light) var(--light) var(--shadow);
-      transform: translateY(1px);
+      transform:translateY(1px);
     }
-
     button:disabled{
       opacity:.55;
       cursor:not-allowed;
@@ -210,22 +194,23 @@
 
     .canvasWrap{
       position:relative;
+      width:100%;
+      aspect-ratio: 1 / 1;
       border:2px solid;
       border-color: var(--shadow) var(--light) var(--light) var(--shadow);
       background:#fff;
       overflow:hidden;
-      min-height:260px;
       touch-action:none;
+      min-height:260px;
     }
 
     .baseCanvas,
     .gridCanvas{
       position:absolute;
-      left:0;
-      top:0;
-      display:block;
+      inset:0;
       width:100%;
       height:100%;
+      display:block;
     }
 
     .gridCanvas{
@@ -253,7 +238,7 @@
         linear-gradient(-45deg, #efefef 25%, transparent 25%),
         linear-gradient(45deg, transparent 75%, #efefef 75%),
         linear-gradient(-45deg, transparent 75%, #efefef 75%);
-      background-size: 16px 16px;
+      background-size:16px 16px;
       background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
     }
 
@@ -261,8 +246,8 @@
 
     .status{
       font-size:13px;
-      min-height:20px;
       line-height:1.4;
+      min-height:20px;
     }
 
     .resultsHeader{
@@ -287,7 +272,7 @@
     .card{
       border:2px solid;
       border-color: var(--light) var(--shadow) var(--shadow) var(--light);
-      background:#d4d0c8;
+      background:var(--panel);
       padding:8px;
       min-width:0;
     }
@@ -342,7 +327,7 @@
 
     @media (max-width: 920px){
       .content{
-        grid-template-columns: 1fr;
+        grid-template-columns:1fr;
       }
     }
 
@@ -353,7 +338,7 @@
       .panel{ padding:8px; }
       .group{ padding:7px; }
       .grid{ grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
-      button, a.downloadLink{ width:100%; }
+      button{ width:100%; }
       .btnrow{ flex-direction:column; }
     }
   </style>
@@ -366,74 +351,53 @@
           <div class="icon"></div>
           <div>Grid Splitter 95</div>
         </div>
-        <div class="chip">Win95 style • mobile friendly</div>
+        <div class="chip">simpel • mobile friendly</div>
       </div>
 
       <div class="content">
         <div class="panel">
           <div class="group">
-            <h3>Masukkan gambar</h3>
+            <h3>Gambar</h3>
             <div class="row">
               <input id="file" type="file" accept="image/*" />
             </div>
-            <div class="note">
-              Potong gambar berdasarkan grid, bukan berdasarkan garis. Grid bisa diatur jumlahnya, ukuran selnya, dan letaknya.
-            </div>
           </div>
 
-          <div class="group">
-            <h3>Atur grid</h3>
+          <div id="controls" class="group hidden">
+            <h3>Grid</h3>
 
             <div class="row">
-              <label for="cols">Jumlah kolom: <strong id="colsLabel">4</strong></label>
-              <input id="cols" type="range" min="1" max="40" value="4" />
+              <label for="cols">Kolom</label>
+              <input id="cols" type="number" min="1" max="24" step="1" value="4" />
             </div>
 
             <div class="row">
-              <label for="rows">Jumlah baris: <strong id="rowsLabel">4</strong></label>
-              <input id="rows" type="range" min="1" max="40" value="4" />
+              <label for="rows">Baris</label>
+              <input id="rows" type="number" min="1" max="24" step="1" value="4" />
             </div>
 
             <div class="row">
-              <label for="cellW">Lebar sel (px gambar): <strong id="cellWLabel">200</strong></label>
-              <input id="cellW" type="range" min="8" max="2000" value="200" />
-            </div>
-
-            <div class="row">
-              <label for="cellH">Tinggi sel (px gambar): <strong id="cellHLabel">200</strong></label>
-              <input id="cellH" type="range" min="8" max="2000" value="200" />
-            </div>
-
-            <div class="row">
-              <label for="offsetX">Posisi grid X (px gambar): <strong id="offsetXLabel">0</strong></label>
-              <input id="offsetX" type="range" min="-2000" max="2000" value="0" />
-            </div>
-
-            <div class="row">
-              <label for="offsetY">Posisi grid Y (px gambar): <strong id="offsetYLabel">0</strong></label>
-              <input id="offsetY" type="range" min="-2000" max="2000" value="0" />
-            </div>
-
-            <div class="row">
-              <label for="gap">Jarak antar sel (px): <strong id="gapLabel">0</strong></label>
-              <input id="gap" type="range" min="0" max="50" value="0" />
+              <label for="gap">Jarak antar grid (px)</label>
+              <input id="gap" type="number" min="0" max="100" step="1" value="0" />
             </div>
 
             <div class="small">
-              Grid bisa juga digeser langsung dengan drag di area preview.
+              Titik bulat bisa digeser untuk mengubah garis. Area dalam grid bisa diseret untuk memindahkan semuanya.
+            </div>
+
+            <div class="btnrow" style="margin-top:10px;">
+              <button id="split" class="primary">Potong</button>
             </div>
           </div>
 
-          <div class="group">
-            <h3>Ekspor hasil</h3>
+          <div id="exportBox" class="group hidden">
+            <h3>Ekspor</h3>
             <div class="btnrow">
-              <button id="split" class="primary">Potong sesuai grid</button>
-              <button id="downloadZip" class="primary" disabled>Download ZIP</button>
-              <button id="downloadAll" disabled>Download semua PNG</button>
-              <button id="reset">Reset</button>
+              <button id="downloadZip" class="primary hidden">Download ZIP</button>
+              <button id="downloadAll" class="hidden">Download PNG</button>
             </div>
             <div class="small" style="margin-top:8px;">
-              Nama file: <span class="kbd">part-01.png</span>, <span class="kbd">part-02.png</span>, dan seterusnya.
+              Nama file: <span class="kbd">part-01.png</span>, <span class="kbd">part-02.png</span>, dst.
             </div>
           </div>
 
@@ -445,23 +409,20 @@
 
         <div class="preview">
           <div class="group">
-            <h3>Preview & grid</h3>
+            <h3>Preview</h3>
             <div id="canvasWrap" class="canvasWrap">
-              <div id="empty" class="empty">
-                Upload gambar dulu.<br>
-                Setelah itu grid bisa diatur dan digeser langsung di area ini.
-              </div>
+              <div id="empty" class="empty">Upload gambar dulu.</div>
               <canvas id="baseCanvas" class="baseCanvas hidden"></canvas>
               <canvas id="gridCanvas" class="gridCanvas hidden"></canvas>
             </div>
           </div>
 
-          <div class="resultsHeader">
-            <h3>Hasil potongan</h3>
+          <div id="resultHeader" class="resultsHeader hidden">
+            <h3>Hasil</h3>
             <div class="small" id="resultCount">0 bagian</div>
           </div>
 
-          <div id="grid" class="grid"></div>
+          <div id="resultGrid" class="grid"></div>
         </div>
       </div>
     </div>
@@ -473,31 +434,18 @@
 
     const els = {
       file: $("file"),
+      controls: $("controls"),
+      exportBox: $("exportBox"),
       cols: $("cols"),
       rows: $("rows"),
-      cellW: $("cellW"),
-      cellH: $("cellH"),
-      offsetX: $("offsetX"),
-      offsetY: $("offsetY"),
       gap: $("gap"),
-
-      colsLabel: $("colsLabel"),
-      rowsLabel: $("rowsLabel"),
-      cellWLabel: $("cellWLabel"),
-      cellHLabel: $("cellHLabel"),
-      offsetXLabel: $("offsetXLabel"),
-      offsetYLabel: $("offsetYLabel"),
-      gapLabel: $("gapLabel"),
-
       split: $("split"),
       downloadZip: $("downloadZip"),
       downloadAll: $("downloadAll"),
-      reset: $("reset"),
-
       status: $("status"),
+      resultHeader: $("resultHeader"),
       resultCount: $("resultCount"),
-      grid: $("grid"),
-
+      resultGrid: $("resultGrid"),
       canvasWrap: $("canvasWrap"),
       empty: $("empty"),
       baseCanvas: $("baseCanvas"),
@@ -511,6 +459,7 @@
     let previewScale = 1;
     let previewW = 0;
     let previewH = 0;
+    let gridState = null;
     let cropResults = [];
 
     function setStatus(msg){
@@ -521,119 +470,153 @@
       return Math.max(min, Math.min(max, v));
     }
 
-    function syncLabels(){
-      els.colsLabel.textContent = els.cols.value;
-      els.rowsLabel.textContent = els.rows.value;
-      els.cellWLabel.textContent = els.cellW.value;
-      els.cellHLabel.textContent = els.cellH.value;
-      els.offsetXLabel.textContent = els.offsetX.value;
-      els.offsetYLabel.textContent = els.offsetY.value;
-      els.gapLabel.textContent = els.gap.value;
+    function getSettings(){
+      const cols = clamp(parseInt(els.cols.value || "1", 10), 1, 24);
+      const rows = clamp(parseInt(els.rows.value || "1", 10), 1, 24);
+      const gap = clamp(parseInt(els.gap.value || "0", 10), 0, 100);
+      els.cols.value = cols;
+      els.rows.value = rows;
+      els.gap.value = gap;
+      return { cols, rows, gap };
     }
 
-    function getGridSettings(){
-      return {
-        cols: parseInt(els.cols.value, 10),
-        rows: parseInt(els.rows.value, 10),
-        cellW: parseInt(els.cellW.value, 10),
-        cellH: parseInt(els.cellH.value, 10),
-        offsetX: parseInt(els.offsetX.value, 10),
-        offsetY: parseInt(els.offsetY.value, 10),
-        gap: parseInt(els.gap.value, 10),
-      };
-    }
-
-    function updatePreviewSize(){
+    function syncCanvasSize(){
       if(!sourceImage) return;
       const maxPreview = 1100;
       previewScale = Math.min(1, maxPreview / Math.max(sourceW, sourceH));
       previewW = Math.max(1, Math.round(sourceW * previewScale));
       previewH = Math.max(1, Math.round(sourceH * previewScale));
 
-      [els.baseCanvas, els.gridCanvas].forEach(c => {
-        c.width = previewW;
-        c.height = previewH;
-        c.style.width = "100%";
-        c.style.height = "100%";
-      });
+      els.canvasWrap.style.aspectRatio = `${previewW} / ${previewH}`;
+      els.baseCanvas.width = previewW;
+      els.baseCanvas.height = previewH;
+      els.gridCanvas.width = previewW;
+      els.gridCanvas.height = previewH;
 
       els.baseCanvas.classList.remove("hidden");
       els.gridCanvas.classList.remove("hidden");
       els.empty.classList.add("hidden");
     }
 
-    function drawPreview(){
+    function buildInitialGrid(){
+      const { cols, rows } = getSettings();
+      const xs = [];
+      const ys = [];
+
+      for(let i=0; i<=cols; i++){
+        xs.push(Math.round((sourceW / cols) * i));
+      }
+      for(let j=0; j<=rows; j++){
+        ys.push(Math.round((sourceH / rows) * j));
+      }
+
+      gridState = {
+        cols,
+        rows,
+        gap: parseInt(els.gap.value, 10),
+        xs,
+        ys
+      };
+    }
+
+    function drawBase(){
       if(!sourceImage) return;
+      const ctx = els.baseCanvas.getContext("2d");
+      ctx.clearRect(0,0,previewW,previewH);
+      ctx.drawImage(sourceImage, 0, 0, previewW, previewH);
+    }
 
-      const bctx = els.baseCanvas.getContext("2d");
-      bctx.clearRect(0,0,previewW,previewH);
-      bctx.drawImage(sourceImage, 0, 0, previewW, previewH);
+    function drawGrid(){
+      if(!gridState) return;
+      const ctx = els.gridCanvas.getContext("2d");
+      ctx.clearRect(0,0,previewW,previewH);
 
-      const gctx = els.gridCanvas.getContext("2d");
-      gctx.clearRect(0,0,previewW,previewH);
+      const gap = gridState.gap;
+      ctx.save();
+      ctx.strokeStyle = "rgba(0,0,0,0.95)";
+      ctx.fillStyle = "rgba(0,0,128,0.10)";
+      ctx.lineWidth = 1;
 
-      const s = getGridSettings();
+      for(let r=0; r<gridState.rows; r++){
+        for(let c=0; c<gridState.cols; c++){
+          const x0 = gridState.xs[c];
+          const x1 = gridState.xs[c+1];
+          const y0 = gridState.ys[r];
+          const y1 = gridState.ys[r+1];
 
-      gctx.save();
-      gctx.lineWidth = 1;
-      gctx.strokeStyle = "rgba(0,0,0,0.9)";
-      gctx.fillStyle = "rgba(0,0,128,0.08)";
+          const padX = gap / 2;
+          const padY = gap / 2;
 
-      for(let r=0; r<s.rows; r++){
-        for(let c=0; c<s.cols; c++){
-          const x = (s.offsetX + c * (s.cellW + s.gap)) * previewScale;
-          const y = (s.offsetY + r * (s.cellH + s.gap)) * previewScale;
-          const w = s.cellW * previewScale;
-          const h = s.cellH * previewScale;
+          const sx0 = clamp(x0 + (c > 0 ? padX : 0), 0, sourceW);
+          const sy0 = clamp(y0 + (r > 0 ? padY : 0), 0, sourceH);
+          const sx1 = clamp(x1 - (c < gridState.cols - 1 ? padX : 0), 0, sourceW);
+          const sy1 = clamp(y1 - (r < gridState.rows - 1 ? padY : 0), 0, sourceH);
 
-          // Fill only if visible
-          if(x + w > 0 && y + h > 0 && x < previewW && y < previewH){
-            gctx.fillRect(x, y, w, h);
-            gctx.strokeRect(x + 0.5, y + 0.5, w, h);
+          const px0 = sx0 * previewScale;
+          const py0 = sy0 * previewScale;
+          const pw = Math.max(0, (sx1 - sx0) * previewScale);
+          const ph = Math.max(0, (sy1 - sy0) * previewScale);
+
+          if(pw > 0 && ph > 0){
+            ctx.fillRect(px0, py0, pw, ph);
+            ctx.strokeRect(px0 + 0.5, py0 + 0.5, pw, ph);
           }
         }
       }
 
-      gctx.restore();
+      const radius = 5;
+      for(let i=0; i<gridState.xs.length; i++){
+        for(let j=0; j<gridState.ys.length; j++){
+          const x = gridState.xs[i] * previewScale;
+          const y = gridState.ys[j] * previewScale;
+
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI * 2);
+          ctx.fillStyle = "#ffffff";
+          ctx.fill();
+          ctx.strokeStyle = "#000000";
+          ctx.stroke();
+        }
+      }
+
+      ctx.restore();
     }
 
-    function normalizeGridIfNeeded(){
-      if(!sourceImage) return;
-      const s = getGridSettings();
-      const maxPossibleW = Math.max(8, sourceW);
-      const maxPossibleH = Math.max(8, sourceH);
-
-      // Keep cell sizes within reasonable bounds relative to source
-      els.cellW.min = "1";
-      els.cellH.min = "1";
-      els.cellW.max = String(maxPossibleW);
-      els.cellH.max = String(maxPossibleH);
-
-      // Ensure offsets slider range can cover image comfortably
-      const maxOffsetX = Math.max(2000, sourceW);
-      const maxOffsetY = Math.max(2000, sourceH);
-      els.offsetX.min = String(-maxOffsetX);
-      els.offsetX.max = String(maxOffsetX);
-      els.offsetY.min = String(-maxOffsetY);
-      els.offsetY.max = String(maxOffsetY);
+    function renderAll(){
+      if(!sourceImage || !gridState) return;
+      drawBase();
+      drawGrid();
     }
 
-    function updateAll(){
-      syncLabels();
-      if(sourceImage){
-        drawPreview();
+    function setGridFromState(next){
+      gridState = next;
+      renderAll();
+    }
+
+    function clampLinePositions(){
+      if(!gridState) return;
+
+      const minCell = 12;
+      const xs = gridState.xs;
+      const ys = gridState.ys;
+
+      xs[0] = clamp(xs[0], 0, sourceW);
+      ys[0] = clamp(ys[0], 0, sourceH);
+      xs[xs.length - 1] = clamp(xs[xs.length - 1], 0, sourceW);
+      ys[ys.length - 1] = clamp(ys[ys.length - 1], 0, sourceH);
+
+      for(let i=1; i<xs.length-1; i++){
+        xs[i] = clamp(xs[i], xs[i-1] + minCell, xs[i+1] - minCell);
+      }
+      for(let j=1; j<ys.length-1; j++){
+        ys[j] = clamp(ys[j], ys[j-1] + minCell, ys[j+1] - minCell);
       }
     }
-
-    ["input", "change"].forEach(evt => {
-      [els.cols, els.rows, els.cellW, els.cellH, els.offsetX, els.offsetY, els.gap].forEach(el => {
-        el.addEventListener(evt, updateAll);
-      });
-    });
 
     function loadFile(file){
       if(!file) return;
       sourceName = (file.name || "image").replace(/\.[^.]+$/, "") || "image";
+
       const url = URL.createObjectURL(file);
       const img = new Image();
       img.onload = () => {
@@ -641,22 +624,23 @@
         sourceW = img.naturalWidth || img.width;
         sourceH = img.naturalHeight || img.height;
 
-        // Default grid: around quarter slicing
-        els.cols.value = Math.max(1, Math.min(8, Math.round(sourceW / 256) || 4));
-        els.rows.value = Math.max(1, Math.min(8, Math.round(sourceH / 256) || 4));
-        els.cellW.value = Math.max(8, Math.round(sourceW / parseInt(els.cols.value, 10)));
-        els.cellH.value = Math.max(8, Math.round(sourceH / parseInt(els.rows.value, 10)));
-        els.offsetX.value = 0;
-        els.offsetY.value = 0;
-        els.gap.value = 0;
+        els.controls.classList.remove("hidden");
+        els.split.classList.remove("hidden");
+        els.exportBox.classList.add("hidden");
+        els.resultHeader.classList.add("hidden");
+        els.resultGrid.innerHTML = "";
+        cropResults = [];
 
-        normalizeGridIfNeeded();
-        updatePreviewSize();
-        updateAll();
-        setStatus(`Gambar dimuat: <strong>${sourceW}×${sourceH}</strong>. Grid siap diatur dan bisa digeser.`);
+        if(!els.cols.value) els.cols.value = 4;
+        if(!els.rows.value) els.rows.value = 4;
+        if(!els.gap.value) els.gap.value = 0;
+
+        syncCanvasSize();
+        buildInitialGrid();
+        renderAll();
+
+        setStatus(`Gambar dimuat: <strong>${sourceW}×${sourceH}</strong>.`);
         URL.revokeObjectURL(url);
-        els.downloadZip.disabled = true;
-        els.downloadAll.disabled = true;
       };
       img.onerror = () => {
         setStatus("Gagal membaca gambar.");
@@ -667,94 +651,126 @@
 
     els.file.addEventListener("change", e => loadFile(e.target.files[0]));
 
-    els.reset.addEventListener("click", () => {
-      sourceImage = null;
-      sourceW = 0;
-      sourceH = 0;
-      previewScale = 1;
-      previewW = 0;
-      previewH = 0;
-      cropResults = [];
-      els.file.value = "";
-      els.grid.innerHTML = "";
-      els.resultCount.textContent = "0 bagian";
-      els.downloadZip.disabled = true;
-      els.downloadAll.disabled = true;
-      els.baseCanvas.classList.add("hidden");
-      els.gridCanvas.classList.add("hidden");
-      els.empty.classList.remove("hidden");
-      setStatus("Belum ada gambar dimuat.");
-    });
+    els.cols.addEventListener("change", () => {
+      if(!sourceImage) return;
+      const nextCols = clamp(parseInt(els.cols.value || "1", 10), 1, 24);
+      els.cols.value = nextCols;
 
-    function makeCropCanvas(img, x, y, w, h){
-      const out = document.createElement("canvas");
-      out.width = w;
-      out.height = h;
-      const ctx = out.getContext("2d");
-      ctx.clearRect(0,0,w,h);
-      ctx.drawImage(img, x, y, w, h, 0, 0, w, h);
-      return out;
-    }
-
-    function downloadBlob(blob, filename){
-      const a = document.createElement("a");
-      const url = URL.createObjectURL(blob);
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1200);
-    }
-
-    async function canvasToBlob(canvas, type="image/png"){
-      return new Promise(resolve => canvas.toBlob(resolve, type));
-    }
-
-    async function splitByGrid(){
-      if(!sourceImage){
-        setStatus("Masukkan gambar dulu ya.");
-        return;
+      const old = gridState;
+      const newXs = [];
+      for(let i=0; i<=nextCols; i++){
+        const t = i / nextCols;
+        newXs.push(Math.round(sourceW * t));
       }
 
-      const s = getGridSettings();
+      if(old){
+        gridState = {
+          cols: nextCols,
+          rows: old.rows,
+          gap: old.gap,
+          xs: newXs,
+          ys: old.ys.slice()
+        };
+      }else{
+        buildInitialGrid();
+      }
+      renderAll();
+    });
+
+    els.rows.addEventListener("change", () => {
+      if(!sourceImage) return;
+      const nextRows = clamp(parseInt(els.rows.value || "1", 10), 1, 24);
+      els.rows.value = nextRows;
+
+      const old = gridState;
+      const newYs = [];
+      for(let j=0; j<=nextRows; j++){
+        const t = j / nextRows;
+        newYs.push(Math.round(sourceH * t));
+      }
+
+      if(old){
+        gridState = {
+          cols: old.cols,
+          rows: nextRows,
+          gap: old.gap,
+          xs: old.xs.slice(),
+          ys: newYs
+        };
+      }else{
+        buildInitialGrid();
+      }
+      renderAll();
+    });
+
+    els.gap.addEventListener("change", () => {
+      if(!sourceImage) return;
+      const nextGap = clamp(parseInt(els.gap.value || "0", 10), 0, 100);
+      els.gap.value = nextGap;
+      if(gridState){
+        gridState.gap = nextGap;
+        renderAll();
+      }
+    });
+
+    els.split.addEventListener("click", async () => {
+      if(!sourceImage || !gridState) return;
+
+      clampLinePositions();
+      renderAll();
+
       cropResults = [];
-      els.grid.innerHTML = "";
-      els.resultCount.textContent = "0 bagian";
-      els.downloadZip.disabled = true;
-      els.downloadAll.disabled = true;
+      els.resultGrid.innerHTML = "";
+      els.resultHeader.classList.remove("hidden");
+      els.exportBox.classList.remove("hidden");
+      els.downloadZip.classList.add("hidden");
+      els.downloadAll.classList.add("hidden");
 
-      setStatus("Sedang memotong sesuai grid...");
+      setStatus("Memotong gambar...");
 
+      const gap = gridState.gap;
       let index = 0;
-      for(let r=0; r<s.rows; r++){
-        for(let c=0; c<s.cols; c++){
-          const x1 = s.offsetX + c * (s.cellW + s.gap);
-          const y1 = s.offsetY + r * (s.cellH + s.gap);
-          const x2 = x1 + s.cellW;
-          const y2 = y1 + s.cellH;
 
-          const sx = clamp(x1, 0, sourceW);
-          const sy = clamp(y1, 0, sourceH);
-          const ex = clamp(x2, 0, sourceW);
-          const ey = clamp(y2, 0, sourceH);
+      for(let r=0; r<gridState.rows; r++){
+        for(let c=0; c<gridState.cols; c++){
+          const x0 = gridState.xs[c];
+          const x1 = gridState.xs[c+1];
+          const y0 = gridState.ys[r];
+          const y1 = gridState.ys[r+1];
 
-          const w = ex - sx;
-          const h = ey - sy;
+          const leftPad = c > 0 ? gap / 2 : 0;
+          const rightPad = c < gridState.cols - 1 ? gap / 2 : 0;
+          const topPad = r > 0 ? gap / 2 : 0;
+          const bottomPad = r < gridState.rows - 1 ? gap / 2 : 0;
+
+          const sx0 = clamp(Math.round(x0 + leftPad), 0, sourceW);
+          const sy0 = clamp(Math.round(y0 + topPad), 0, sourceH);
+          const sx1 = clamp(Math.round(x1 - rightPad), 0, sourceW);
+          const sy1 = clamp(Math.round(y1 - bottomPad), 0, sourceH);
+
+          const w = sx1 - sx0;
+          const h = sy1 - sy0;
           if(w <= 0 || h <= 0) continue;
 
           index++;
-          const cropCanvas = makeCropCanvas(sourceImage, sx, sy, w, h);
-          const blob = await canvasToBlob(cropCanvas, "image/png");
+
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(sourceImage, sx0, sy0, w, h, 0, 0, w, h);
+
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
           const filename = `${sourceName}-part-${String(index).padStart(2, "0")}.png`;
 
-          cropResults.push({ index, filename, blob, w, h });
+          cropResults.push({ filename, blob, w, h });
 
           const card = document.createElement("div");
           card.className = "card";
 
           const thumb = document.createElement("div");
           thumb.className = "thumb";
+
           const img = document.createElement("img");
           img.src = URL.createObjectURL(blob);
           img.alt = filename;
@@ -769,31 +785,37 @@
 
           const dl = document.createElement("button");
           dl.textContent = "Download";
-          dl.addEventListener("click", () => downloadBlob(blob, filename));
+          dl.addEventListener("click", () => {
+            const a = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1200);
+          });
 
           btnRow.appendChild(dl);
           card.appendChild(thumb);
           card.appendChild(meta);
           card.appendChild(btnRow);
-          els.grid.appendChild(card);
+          els.resultGrid.appendChild(card);
         }
       }
 
       els.resultCount.textContent = `${cropResults.length} bagian`;
       if(cropResults.length){
-        els.downloadZip.disabled = false;
-        els.downloadAll.disabled = false;
-        setStatus(`Selesai. Ditemukan <strong>${cropResults.length}</strong> potongan.`);
+        els.downloadZip.classList.remove("hidden");
+        els.downloadAll.classList.remove("hidden");
+        setStatus(`Selesai. Ada <strong>${cropResults.length}</strong> potongan.`);
       }else{
-        setStatus("Tidak ada potongan yang masuk area gambar. Coba geser grid atau ubah ukuran sel.");
+        setStatus("Tidak ada area yang bisa dipotong.");
       }
-    }
-
-    els.split.addEventListener("click", splitByGrid);
+    });
 
     els.downloadZip.addEventListener("click", async () => {
       if(!cropResults.length) return;
-      els.downloadZip.disabled = true;
       setStatus("Menyiapkan ZIP...");
       try{
         const zip = new JSZip();
@@ -802,88 +824,176 @@
           folder.file(item.filename, item.blob);
         }
         const blob = await zip.generateAsync({ type:"blob" });
-        downloadBlob(blob, `${sourceName}-parts.zip`);
+        const a = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        a.href = url;
+        a.download = `${sourceName}-parts.zip`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1200);
         setStatus(`ZIP siap diunduh berisi <strong>${cropResults.length}</strong> gambar.`);
       }catch(err){
         console.error(err);
         setStatus("Gagal membuat ZIP.");
-      }finally{
-        els.downloadZip.disabled = cropResults.length === 0;
       }
     });
 
     els.downloadAll.addEventListener("click", async () => {
       if(!cropResults.length) return;
-      els.downloadAll.disabled = true;
-      setStatus("Mengunduh semua PNG satu per satu...");
-      try{
-        for(const item of cropResults){
-          downloadBlob(item.blob, item.filename);
-          await new Promise(r => setTimeout(r, 180));
-        }
-        setStatus(`Semua PNG sudah dipicu untuk diunduh (${cropResults.length} file).`);
-      }finally{
-        els.downloadAll.disabled = cropResults.length === 0;
+      setStatus("Mengunduh PNG satu per satu...");
+      for(const item of cropResults){
+        const a = document.createElement("a");
+        const url = URL.createObjectURL(item.blob);
+        a.href = url;
+        a.download = item.filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        await new Promise(r => setTimeout(r, 180));
+        setTimeout(() => URL.revokeObjectURL(url), 1200);
       }
+      setStatus(`Semua PNG sudah dipicu untuk diunduh (${cropResults.length} file).`);
     });
 
-    // Drag grid on preview
-    let dragging = false;
+    // Drag grid from inside area, not from circles
+    let draggingGrid = false;
+    let activeHandle = null;
     let dragStart = null;
+    let startXs = null;
+    let startYs = null;
 
-    function getPointerPos(evt){
+    function getPointerInCanvas(evt){
       const rect = els.gridCanvas.getBoundingClientRect();
       const x = (evt.clientX - rect.left) * (els.gridCanvas.width / rect.width);
       const y = (evt.clientY - rect.top) * (els.gridCanvas.height / rect.height);
       return { x, y };
     }
 
+    function findNearestHandle(px, py){
+      if(!gridState) return null;
+      const hitRadius = 12;
+      let best = null;
+      let bestDist = Infinity;
+
+      for(let i=0; i<gridState.xs.length; i++){
+        for(let j=0; j<gridState.ys.length; j++){
+          const x = gridState.xs[i] * previewScale;
+          const y = gridState.ys[j] * previewScale;
+          const dx = px - x;
+          const dy = py - y;
+          const d = Math.hypot(dx, dy);
+          if(d <= hitRadius && d < bestDist){
+            bestDist = d;
+            best = { i, j };
+          }
+        }
+      }
+      return best;
+    }
+
     els.gridCanvas.addEventListener("pointerdown", (evt) => {
-      if(!sourceImage) return;
-      dragging = true;
+      if(!sourceImage || !gridState) return;
+
+      const p = getPointerInCanvas(evt);
+      const hit = findNearestHandle(p.x, p.y);
+
+      if(hit){
+        activeHandle = hit;
+        draggingGrid = false;
+        els.gridCanvas.setPointerCapture(evt.pointerId);
+        dragStart = { x: p.x, y: p.y };
+        startXs = gridState.xs.slice();
+        startYs = gridState.ys.slice();
+        return;
+      }
+
+      draggingGrid = true;
+      activeHandle = null;
       els.gridCanvas.setPointerCapture(evt.pointerId);
-      const p = getPointerPos(evt);
-      const s = getGridSettings();
-      dragStart = {
-        x: p.x,
-        y: p.y,
-        offsetX: s.offsetX,
-        offsetY: s.offsetY
-      };
+      dragStart = { x: p.x, y: p.y };
+      startXs = gridState.xs.slice();
+      startYs = gridState.ys.slice();
     });
 
     els.gridCanvas.addEventListener("pointermove", (evt) => {
-      if(!dragging || !dragStart || !sourceImage) return;
-      const p = getPointerPos(evt);
-      const dxPreview = p.x - dragStart.x;
-      const dyPreview = p.y - dragStart.y;
-      const dxImage = Math.round(dxPreview / previewScale);
-      const dyImage = Math.round(dyPreview / previewScale);
+      if(!sourceImage || !gridState || !dragStart) return;
 
-      els.offsetX.value = dragStart.offsetX + dxImage;
-      els.offsetY.value = dragStart.offsetY + dyImage;
-      syncLabels();
-      drawPreview();
+      const p = getPointerInCanvas(evt);
+      const dx = Math.round((p.x - dragStart.x) / previewScale);
+      const dy = Math.round((p.y - dragStart.y) / previewScale);
+
+      if(activeHandle){
+        const { i, j } = activeHandle;
+        gridState.xs = startXs.slice();
+        gridState.ys = startYs.slice();
+
+        if(i > 0 && i < gridState.xs.length - 1){
+          gridState.xs[i] = startXs[i] + dx;
+        }else if(i === 0){
+          gridState.xs[i] = startXs[i] + dx;
+        }else if(i === gridState.xs.length - 1){
+          gridState.xs[i] = startXs[i] + dx;
+        }
+
+        if(j > 0 && j < gridState.ys.length - 1){
+          gridState.ys[j] = startYs[j] + dy;
+        }else if(j === 0){
+          gridState.ys[j] = startYs[j] + dy;
+        }else if(j === gridState.ys.length - 1){
+          gridState.ys[j] = startYs[j] + dy;
+        }
+
+        clampLinePositions();
+        renderAll();
+        return;
+      }
+
+      if(draggingGrid){
+        const newXs = startXs.map(v => v + dx);
+        const newYs = startYs.map(v => v + dy);
+
+        const minX = Math.min(...newXs);
+        const maxX = Math.max(...newXs);
+        const minY = Math.min(...newYs);
+        const maxY = Math.max(...newYs);
+
+        let shiftX = 0;
+        let shiftY = 0;
+
+        if(minX < 0) shiftX = -minX;
+        if(maxX + shiftX > sourceW) shiftX += sourceW - (maxX + shiftX);
+
+        if(minY < 0) shiftY = -minY;
+        if(maxY + shiftY > sourceH) shiftY += sourceH - (maxY + shiftY);
+
+        gridState.xs = newXs.map(v => v + shiftX);
+        gridState.ys = newYs.map(v => v + shiftY);
+
+        clampLinePositions();
+        renderAll();
+      }
     });
 
-    function endDrag(evt){
-      dragging = false;
+    function endDrag(){
+      draggingGrid = false;
+      activeHandle = null;
       dragStart = null;
+      startXs = null;
+      startYs = null;
     }
 
     els.gridCanvas.addEventListener("pointerup", endDrag);
     els.gridCanvas.addEventListener("pointercancel", endDrag);
     els.gridCanvas.addEventListener("pointerleave", endDrag);
 
-    // Keep preview aligned on resize
     window.addEventListener("resize", () => {
       if(sourceImage){
-        updatePreviewSize();
-        drawPreview();
+        syncCanvasSize();
+        renderAll();
       }
     });
 
-    syncLabels();
     setStatus("Belum ada gambar dimuat.");
   </script>
 </body>
