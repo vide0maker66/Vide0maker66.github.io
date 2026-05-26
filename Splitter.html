@@ -14,6 +14,8 @@
       --titleText:#ffffff;
       --field:#ffffff;
       --text:#000000;
+      --blue:#0000ff;
+      --blueSoft:#7aa7ff;
     }
 
     *{ box-sizing:border-box; }
@@ -134,7 +136,8 @@
       font-size:13px;
     }
 
-    input[type="number"]{
+    input[type="number"],
+    input[type="text"]{
       width:100%;
       font:inherit;
       font-size:13px;
@@ -367,6 +370,11 @@
             <h3>Grid</h3>
 
             <div class="row">
+              <label for="fileName">Nama file</label>
+              <input id="fileName" type="text" value="image" maxlength="80" />
+            </div>
+
+            <div class="row">
               <label for="cols">Kolom</label>
               <input id="cols" type="number" min="1" max="24" step="1" value="4" />
             </div>
@@ -436,6 +444,7 @@
       file: $("file"),
       controls: $("controls"),
       exportBox: $("exportBox"),
+      fileName: $("fileName"),
       cols: $("cols"),
       rows: $("rows"),
       gap: $("gap"),
@@ -468,6 +477,18 @@
 
     function clamp(v, min, max){
       return Math.max(min, Math.min(max, v));
+    }
+
+    function sanitizeFileName(name){
+      const cleaned = (name || "image")
+        .trim()
+        .replace(/[\\\/:*?"<>|]+/g, "_")
+        .replace(/\s+/g, " ");
+      return cleaned || "image";
+    }
+
+    function getBaseFileName(){
+      return sanitizeFileName(els.fileName.value);
     }
 
     function getSettings(){
@@ -515,7 +536,8 @@
         rows,
         gap: parseInt(els.gap.value, 10),
         xs,
-        ys
+        ys,
+        activeHandle: null
       };
     }
 
@@ -564,17 +586,32 @@
         }
       }
 
-      const radius = 5;
+      const radius = 8;
+      const strokeRadius = 8;
       for(let i=0; i<gridState.xs.length; i++){
         for(let j=0; j<gridState.ys.length; j++){
           const x = gridState.xs[i] * previewScale;
           const y = gridState.ys[j] * previewScale;
+          const active = gridState.activeHandle &&
+                         gridState.activeHandle.i === i &&
+                         gridState.activeHandle.j === j;
 
           ctx.beginPath();
           ctx.arc(x, y, radius, 0, Math.PI * 2);
-          ctx.fillStyle = "#ffffff";
+
+          if(active){
+            ctx.fillStyle = "rgba(0,0,255,1)";
+            ctx.shadowColor = "rgba(0,0,255,0.9)";
+            ctx.shadowBlur = 10;
+          }else{
+            ctx.fillStyle = "#ffffff";
+            ctx.shadowColor = "transparent";
+            ctx.shadowBlur = 0;
+          }
+
           ctx.fill();
-          ctx.strokeStyle = "#000000";
+          ctx.strokeStyle = active ? "rgba(255,255,255,0.95)" : "#000000";
+          ctx.lineWidth = 1;
           ctx.stroke();
         }
       }
@@ -586,11 +623,6 @@
       if(!sourceImage || !gridState) return;
       drawBase();
       drawGrid();
-    }
-
-    function setGridFromState(next){
-      gridState = next;
-      renderAll();
     }
 
     function clampLinePositions(){
@@ -630,6 +662,7 @@
         els.resultHeader.classList.add("hidden");
         els.resultGrid.innerHTML = "";
         cropResults = [];
+        els.fileName.value = sourceName;
 
         if(!els.cols.value) els.cols.value = 4;
         if(!els.rows.value) els.rows.value = 4;
@@ -641,6 +674,8 @@
 
         setStatus(`Gambar dimuat: <strong>${sourceW}×${sourceH}</strong>.`);
         URL.revokeObjectURL(url);
+        els.downloadZip.disabled = true;
+        els.downloadAll.disabled = true;
       };
       img.onerror = () => {
         setStatus("Gagal membaca gambar.");
@@ -669,7 +704,8 @@
           rows: old.rows,
           gap: old.gap,
           xs: newXs,
-          ys: old.ys.slice()
+          ys: old.ys.slice(),
+          activeHandle: null
         };
       }else{
         buildInitialGrid();
@@ -695,7 +731,8 @@
           rows: nextRows,
           gap: old.gap,
           xs: old.xs.slice(),
-          ys: newYs
+          ys: newYs,
+          activeHandle: null
         };
       }else{
         buildInitialGrid();
@@ -729,6 +766,7 @@
       setStatus("Memotong gambar...");
 
       const gap = gridState.gap;
+      const baseName = getBaseFileName();
       let index = 0;
 
       for(let r=0; r<gridState.rows; r++){
@@ -761,7 +799,7 @@
           ctx.drawImage(sourceImage, sx0, sy0, w, h, 0, 0, w, h);
 
           const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
-          const filename = `${sourceName}-part-${String(index).padStart(2, "0")}.png`;
+          const filename = `${baseName}-part-${String(index).padStart(2, "0")}.png`;
 
           cropResults.push({ filename, blob, w, h });
 
@@ -816,10 +854,11 @@
 
     els.downloadZip.addEventListener("click", async () => {
       if(!cropResults.length) return;
+      const baseName = getBaseFileName();
       setStatus("Menyiapkan ZIP...");
       try{
         const zip = new JSZip();
-        const folder = zip.folder(`${sourceName}-parts`);
+        const folder = zip.folder(`${baseName}-parts`);
         for(const item of cropResults){
           folder.file(item.filename, item.blob);
         }
@@ -827,7 +866,7 @@
         const a = document.createElement("a");
         const url = URL.createObjectURL(blob);
         a.href = url;
-        a.download = `${sourceName}-parts.zip`;
+        a.download = `${baseName}-parts.zip`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -872,7 +911,7 @@
 
     function findNearestHandle(px, py){
       if(!gridState) return null;
-      const hitRadius = 12;
+      const hitRadius = 18;
       let best = null;
       let bestDist = Infinity;
 
@@ -880,9 +919,7 @@
         for(let j=0; j<gridState.ys.length; j++){
           const x = gridState.xs[i] * previewScale;
           const y = gridState.ys[j] * previewScale;
-          const dx = px - x;
-          const dy = py - y;
-          const d = Math.hypot(dx, dy);
+          const d = Math.hypot(px - x, py - y);
           if(d <= hitRadius && d < bestDist){
             bestDist = d;
             best = { i, j };
@@ -890,6 +927,15 @@
         }
       }
       return best;
+    }
+
+    function isInsideInnerGrid(px, py){
+      if(!gridState) return false;
+      const left = Math.min(...gridState.xs) * previewScale;
+      const right = Math.max(...gridState.xs) * previewScale;
+      const top = Math.min(...gridState.ys) * previewScale;
+      const bottom = Math.max(...gridState.ys) * previewScale;
+      return px >= left && px <= right && py >= top && py <= bottom;
     }
 
     els.gridCanvas.addEventListener("pointerdown", (evt) => {
@@ -900,20 +946,26 @@
 
       if(hit){
         activeHandle = hit;
+        gridState.activeHandle = hit;
         draggingGrid = false;
         els.gridCanvas.setPointerCapture(evt.pointerId);
         dragStart = { x: p.x, y: p.y };
         startXs = gridState.xs.slice();
         startYs = gridState.ys.slice();
+        renderAll();
         return;
       }
 
-      draggingGrid = true;
-      activeHandle = null;
-      els.gridCanvas.setPointerCapture(evt.pointerId);
-      dragStart = { x: p.x, y: p.y };
-      startXs = gridState.xs.slice();
-      startYs = gridState.ys.slice();
+      if(isInsideInnerGrid(p.x, p.y)){
+        draggingGrid = true;
+        activeHandle = null;
+        gridState.activeHandle = null;
+        els.gridCanvas.setPointerCapture(evt.pointerId);
+        dragStart = { x: p.x, y: p.y };
+        startXs = gridState.xs.slice();
+        startYs = gridState.ys.slice();
+        renderAll();
+      }
     });
 
     els.gridCanvas.addEventListener("pointermove", (evt) => {
@@ -928,23 +980,11 @@
         gridState.xs = startXs.slice();
         gridState.ys = startYs.slice();
 
-        if(i > 0 && i < gridState.xs.length - 1){
-          gridState.xs[i] = startXs[i] + dx;
-        }else if(i === 0){
-          gridState.xs[i] = startXs[i] + dx;
-        }else if(i === gridState.xs.length - 1){
-          gridState.xs[i] = startXs[i] + dx;
-        }
-
-        if(j > 0 && j < gridState.ys.length - 1){
-          gridState.ys[j] = startYs[j] + dy;
-        }else if(j === 0){
-          gridState.ys[j] = startYs[j] + dy;
-        }else if(j === gridState.ys.length - 1){
-          gridState.ys[j] = startYs[j] + dy;
-        }
+        gridState.xs[i] = startXs[i] + dx;
+        gridState.ys[j] = startYs[j] + dy;
 
         clampLinePositions();
+        gridState.activeHandle = activeHandle;
         renderAll();
         return;
       }
@@ -971,6 +1011,7 @@
         gridState.ys = newYs.map(v => v + shiftY);
 
         clampLinePositions();
+        gridState.activeHandle = null;
         renderAll();
       }
     });
@@ -981,6 +1022,10 @@
       dragStart = null;
       startXs = null;
       startYs = null;
+      if(gridState){
+        gridState.activeHandle = null;
+        renderAll();
+      }
     }
 
     els.gridCanvas.addEventListener("pointerup", endDrag);
