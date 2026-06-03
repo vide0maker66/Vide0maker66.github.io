@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Cutter 95</title>
+    <link rel="stylesheet" href="https://unpkg.com/98.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
+    <style>
+        body { 
+            background-color: #008080; /* Warna background khas Win95 */
+            display: flex; 
+            justify-content: center; 
+            padding: 50px 10px;
+        }
+        .main-window { width: 100%; max-width: 500px; }
+        .segment-box { margin-top: 15px; }
+        .segment-item { 
+            background: #fff; 
+            border: 1px inset #dfdfdf; 
+            padding: 10px; 
+            margin-bottom: 10px;
+        }
+        .action-buttons { margin-top: 10px; display: flex; gap: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="window main-window">
+        <div class="title-bar">
+            <div class="title-bar-text">Audio Cutter 95 - Auto Silence Detector</div>
+            <div class="title-bar-controls">
+                <button aria-label="Minimize"></button>
+                <button aria-label="Maximize"></button>
+                <button aria-label="Close"></button>
+            </div>
+        </div>
+        <div class="window-body">
+            <p>Pilih file audio (.mp3, .wav) untuk dipotong secara otomatis berdasarkan jeda/hening.</p>
+            
+            <div class="field-row">
+                <input type="file" id="audioInput" accept="audio/*">
+            </div>
+
+            <p id="statusText"></p>
+
+            <div id="outputArea" class="segment-box"></div>
+        </div>
+    </div>
+
+    <script>
+        const audioInput = document.getElementById('audioInput');
+        const outputArea = document.getElementById('outputArea');
+        const statusText = document.getElementById('statusText');
+
+        // Global Audio Context & Buffer
+        let audioCtx;
+        let globalAudioBuffer;
+        
+        // Konfigurasi Deteksi
+        const SILENCE_THRESHOLD = 0.02; 
+        const MIN_SILENCE_DURATION = 0.1;
+
+        audioInput.addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            statusText.innerText = "Membaca dan menganalisis audio. Mohon tunggu...";
+            outputArea.innerHTML = "";
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                globalAudioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+                const channelData = globalAudioBuffer.getChannelData(0);
+                const sampleRate = globalAudioBuffer.sampleRate;
+                const minSilenceSamples = sampleRate * MIN_SILENCE_DURATION;
+
+                let isSilent = true;
+                let silenceLength = 0;
+                let segments = [];
+                let currentStart = 0;
+
+                for (let i = 0; i < channelData.length; i++) {
+                    if (Math.abs(channelData[i]) < SILENCE_THRESHOLD) {
+                        silenceLength++;
+                    } else {
+                        if (isSilent && silenceLength >= minSilenceSamples) {
+                            currentStart = i / sampleRate;
+                            isSilent = false;
+                        } else if (isSilent) {
+                            isSilent = false;
+                        }
+                        silenceLength = 0;
+                    }
+
+                    if (!isSilent && silenceLength >= minSilenceSamples) {
+                        const currentEnd = (i - silenceLength) / sampleRate;
+                        if (currentEnd > currentStart) {
+                            segments.push({ start: currentStart, end: currentEnd });
+                        }
+                        isSilent = true;
+                    }
+                }
+
+                if (!isSilent) {
+                    segments.push({ start: currentStart, end: channelData.length / sampleRate });
+                }
+
+                statusText.innerText = `Selesai! Ditemukan ${segments.length} potongan audio.`;
+                tampilkanHasil(segments);
+
+            } catch (error) {
+                console.error(error);
+                statusText.innerText = "Terjadi kesalahan sistem: " + error.message;
+            }
+        });
+
+        function tampilkanHasil(segments) {
+            segments.forEach((seg, index) => {
+                const start = seg.start.toFixed(2);
+                const end = seg.end.toFixed(2);
+                
+                const div = document.createElement('div');
+                div.className = 'segment-item';
+                div.innerHTML = `
+                    <b>Potongan ${index + 1}</b><br>
+                    Waktu: ${start}s - ${end}s <br>
+                    <div class="action-buttons">
+                        <button onclick="playSegment(${seg.start}, ${seg.end})">▶ Play</button>
+                        <button id="btn-dl-${index}" onclick="downloadMp3(${seg.start}, ${seg.end}, ${index})">💾 Save as MP3</button>
+                    </div>
+                `;
+                outputArea.appendChild(div);
+            });
+        }
+
+        // --- FUNGSI PLAY AUDIO ---
+        let currentSource = null;
+        function playSegment(start, end) {
+            // Hentikan audio yang sedang berjalan
+            if (currentSource) {
+                currentSource.stop();
+            }
+            currentSource = audioCtx.createBufferSource();
+            currentSource.buffer = globalAudioBuffer;
+            currentSource.connect(audioCtx.destination);
+            // Mulai dari titik start, dengan durasi (end - start)
+            currentSource.start(0, start, end - start);
+        }
+
+        // --- FUNGSI EXPORT MP3 ---
+        function downloadMp3(start, end, index) {
+            const btn = document.getElementById(`btn-dl-${index}`);
+            btn.innerText = "⏳ Encoding...";
+            btn.disabled = true;
+
+            // Gunakan setTimeout agar UI tidak nge-freeze seketika dan tombol sempat berubah teks
+            setTimeout(() => {
+                try {
+                    const sampleRate = globalAudioBuffer.sampleRate;
+                    const channelData = globalAudioBuffer.getChannelData(0); // Ambil channel mono
+                    
+                    const startSample = Math.floor(start * sampleRate);
+                    const endSample = Math.floor(end * sampleRate);
+                    const segmentData = channelData.slice(startSample, endSample);
+
+                    // Konversi Float32 ke Int16 (Format yang dibutuhkan Lamejs)
+                    const int16Array = new Int16Array(segmentData.length);
+                    for (let i = 0; i < segmentData.length; i++) {
+                        // Mencegah distorsi (clipping)
+                        let val = segmentData[i] < 0 ? segmentData[i] * 0x8000 : segmentData[i] * 0x7FFF;
+                        int16Array[i] = val;
+                    }
+
+                    // Inisialisasi encoder MP3 (1 channel, sample rate, 128 kbps bitrate)
+                    const mp3encoder = new lamejs.Mp3Encoder(1, sampleRate, 128);
+                    const mp3Data = [];
+                    const sampleBlockSize = 1152; 
+
+                    for (let i = 0; i < int16Array.length; i += sampleBlockSize) {
+                        const chunk = int16Array.subarray(i, i + sampleBlockSize);
+                        const mp3buf = mp3encoder.encodeBuffer(chunk);
+                        if (mp3buf.length > 0) {
+                            mp3Data.push(mp3buf);
+                        }
+                    }
+                    
+                    // Finalisasi encoding
+                    const mp3buf = mp3encoder.flush();
+                    if (mp3buf.length > 0) {
+                        mp3Data.push(mp3buf);
+                    }
+
+                    // Download file
+                    const blob = new Blob(mp3Data, { type: 'audio/mp3' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `Potongan_${index + 1}.mp3`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+
+                } catch (e) {
+                    alert("Gagal encode MP3: " + e.message);
+                } finally {
+                    btn.innerText = "💾 Save as MP3";
+                    btn.disabled = false;
+                }
+            }, 50);
+        }
+    </script>
+</body>
+</html>
