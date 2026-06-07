@@ -279,6 +279,8 @@
       background:var(--panel);
       padding:8px;
       min-width:0;
+      display: flex;
+      flex-direction: column;
     }
 
     .thumb{
@@ -296,6 +298,7 @@
       align-items:center;
       justify-content:center;
       overflow:hidden;
+      margin-bottom: 8px;
     }
 
     .thumb img{
@@ -308,8 +311,19 @@
       display:flex;
       justify-content:space-between;
       gap:8px;
-      margin:8px 0;
+      margin-bottom:6px;
       font-size:12px;
+    }
+
+    .partNameInput{
+      width: 100%;
+      font-family: inherit;
+      font-size: 11px;
+      padding: 4px;
+      border: 2px solid;
+      border-color: var(--shadow) var(--light) var(--light) var(--shadow);
+      margin-bottom: 8px;
+      background: var(--field);
     }
 
     .kbd{
@@ -413,7 +427,7 @@
               <button id="downloadZip" class="primary hidden">Download ZIP</button>
             </div>
             <div class="small" style="margin-top:8px;">
-              Nama file: <span class="kbd">part-01.png</span>, <span class="kbd">part-02.png</span>, dst.
+              Kamu bisa mengganti nama masing-masing potongan di kotak bawah sebelum menekan Download.
             </div>
           </div>
 
@@ -540,7 +554,6 @@
 
               let minX = x, maxX = x, minY = y, maxY = y;
 
-              // Flood fill
               while (head < tail) {
                 const cx = qx[head];
                 const cy = qy[head];
@@ -571,7 +584,6 @@
 
               const w = maxX - minX + 1;
               const h = maxY - minY + 1;
-              // Saring partikel sangat kecil (noise/debu ukuran 1x1 atau 2x2)
               if (w > 2 || h > 2) {
                 boxes.push({ x: minX, y: minY, w, h });
               }
@@ -579,8 +591,6 @@
           }
         }
       }
-
-      // Urutkan kotak berdasarkan posisi (Atas ke Bawah, Kiri ke Kanan)
       boxes.sort((a, b) => (a.y - b.y) || (a.x - b.x));
       return boxes;
     }
@@ -636,7 +646,6 @@
       if(!sourceImage) return;
       const ctx = els.baseCanvas.getContext("2d");
       ctx.clearRect(0,0,previewW,previewH);
-      // Buat pattern transparan di belakang gambar
       ctx.fillStyle = createCheckerboardPattern(ctx);
       ctx.fillRect(0,0,previewW,previewH);
       ctx.drawImage(sourceImage, 0, 0, previewW, previewH);
@@ -839,7 +848,7 @@
     ["cols", "rows", "gap"].forEach(id => {
       els[id].addEventListener("change", () => {
         if(!sourceImage || currentMode !== "grid") return;
-        buildInitialGrid(); // Recalculate basic grid distribution
+        buildInitialGrid(); 
         renderAll();
       });
     });
@@ -856,6 +865,13 @@
       setTimeout(() => URL.revokeObjectURL(url), 2000);
     }
 
+    function getSafeFilename(name, defaultName) {
+      let clean = name.trim();
+      if(!clean) return defaultName;
+      if(!clean.toLowerCase().endsWith('.png')) clean += '.png';
+      return clean;
+    }
+
     async function processCropItem(sx0, sy0, w, h, index, baseName) {
       const canvas = document.createElement("canvas");
       canvas.width = w; canvas.height = h;
@@ -863,8 +879,11 @@
       ctx.drawImage(sourceImage, sx0, sy0, w, h, 0, 0, w, h);
 
       const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
-      const filename = `${baseName}-part-${String(index).padStart(2, "0")}.png`;
-      cropResults.push({ filename, blob, w, h });
+      const defaultFilename = `${baseName}-part-${String(index).padStart(2, "0")}.png`;
+      
+      // Simpan referensi ke cropResults
+      const resultObj = { defaultFilename, blob, w, h };
+      const arrayIndex = cropResults.push(resultObj) - 1;
 
       const card = document.createElement("div");
       card.className = "card";
@@ -874,23 +893,35 @@
       
       const img = document.createElement("img");
       img.src = URL.createObjectURL(blob);
-      img.alt = filename;
+      img.alt = defaultFilename;
       thumb.appendChild(img);
 
       const meta = document.createElement("div");
       meta.className = "cardMeta";
       meta.innerHTML = `<span><strong>#${index}</strong></span><span>${w}×${h}</span>`;
 
+      // Input teks untuk ganti nama
+      const nameInput = document.createElement("input");
+      nameInput.type = "text";
+      nameInput.className = "partNameInput";
+      nameInput.value = defaultFilename;
+      nameInput.id = `name-input-${arrayIndex}`; // ID agar mudah diambil nilainya saat ekstrak ZIP
+
       const btnRow = document.createElement("div");
       btnRow.className = "btnrow";
       
       const dl = document.createElement("button");
       dl.textContent = "Download";
-      dl.addEventListener("click", () => triggerDownload(blob, filename));
+      dl.style.flex = "1";
+      dl.addEventListener("click", () => {
+        const finalName = getSafeFilename(nameInput.value, defaultFilename);
+        triggerDownload(blob, finalName);
+      });
 
       btnRow.appendChild(dl);
       card.appendChild(thumb);
       card.appendChild(meta);
+      card.appendChild(nameInput);
       card.appendChild(btnRow);
       els.resultGrid.appendChild(card);
     }
@@ -958,17 +989,38 @@
     els.downloadZip.addEventListener("click", async () => {
       if(!cropResults.length) return;
       if(typeof JSZip === "undefined"){
-        setStatus("JSZip belum termuat. ZIP tidak bisa dibuat saat ini.");
+        setStatus("JSZip belum termuat. Pastikan ada koneksi internet.");
         return;
       }
+
       const baseName = getBaseFileName();
       setStatus("Menyiapkan ZIP...");
+
       try{
         const zip = new JSZip();
         const folder = zip.folder(`${baseName}-parts`);
-        for(const item of cropResults){
-          folder.file(item.filename, item.blob);
-        }
+        const nameCount = {};
+
+        // Loop array dan baca input text terbaru untuk menyusun ZIP
+        cropResults.forEach((item, i) => {
+          const inputEl = document.getElementById(`name-input-${i}`);
+          const rawName = inputEl ? inputEl.value : item.defaultFilename;
+          const safeName = getSafeFilename(rawName, item.defaultFilename);
+
+          // Pencegah bentrok / duplikasi nama file
+          let finalName = safeName;
+          if (nameCount[finalName]) {
+            const parts = finalName.split('.');
+            const ext = parts.pop();
+            finalName = `${parts.join('.')}_${nameCount[safeName]}.${ext}`;
+            nameCount[safeName]++;
+          } else {
+            nameCount[safeName] = 1;
+          }
+
+          folder.file(finalName, item.blob);
+        });
+
         const blob = await zip.generateAsync({ type:"blob" });
         triggerDownload(blob, `${baseName}-parts.zip`);
         setStatus(`ZIP siap diunduh berisi <strong>${cropResults.length}</strong> gambar.`);
