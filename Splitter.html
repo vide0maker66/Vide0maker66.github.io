@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>Grid Splitter 95</title>
+  <title>Grid Splitter 95 - Smart Edition</title>
   <style>
     :root{
       --bg:#c0c0c0;
@@ -136,7 +136,8 @@
     }
 
     input[type="number"],
-    input[type="text"]{
+    input[type="text"],
+    select {
       width:100%;
       font:inherit;
       font-size:13px;
@@ -217,10 +218,11 @@
 
     .gridCanvas{
       pointer-events:auto;
+    }
+    .gridCanvas.mode-grid {
       cursor:grab;
     }
-
-    .gridCanvas:active{
+    .gridCanvas.mode-grid:active {
       cursor:grabbing;
     }
 
@@ -344,7 +346,7 @@
           <div class="icon"></div>
           <div>Grid Splitter 95</div>
         </div>
-        <div class="chip">simpel • mobile friendly</div>
+        <div class="chip">auto-detect • smart crop</div>
       </div>
 
       <div class="content">
@@ -357,30 +359,47 @@
           </div>
 
           <div id="controls" class="group hidden">
-            <h3>Grid</h3>
+            <h3>Pengaturan</h3>
 
             <div class="row">
-              <label for="fileName">Nama file</label>
+              <label for="fileName">Nama file dasar</label>
               <input id="fileName" type="text" value="image" maxlength="80" />
             </div>
 
             <div class="row">
-              <label for="cols">Kolom</label>
-              <input id="cols" type="number" min="1" max="24" step="1" value="4" />
+              <label for="mode">Metode Potong</label>
+              <select id="mode">
+                <option value="auto" selected>Auto Deteksi (Transparan)</option>
+                <option value="grid">Grid (Manual)</option>
+              </select>
             </div>
 
-            <div class="row">
-              <label for="rows">Baris</label>
-              <input id="rows" type="number" min="1" max="24" step="1" value="4" />
+            <div id="gridSettings" class="hidden">
+              <div class="row">
+                <label for="cols">Kolom</label>
+                <input id="cols" type="number" min="1" max="24" step="1" value="4" />
+              </div>
+              <div class="row">
+                <label for="rows">Baris</label>
+                <input id="rows" type="number" min="1" max="24" step="1" value="4" />
+              </div>
+              <div class="row">
+                <label for="gap">Jarak antar grid (px)</label>
+                <input id="gap" type="number" min="0" max="100" step="1" value="0" />
+              </div>
+              <div class="small">
+                Titik bulat bisa digeser untuk mengubah garis. Area dalam grid bisa diseret untuk memindahkan semuanya.
+              </div>
             </div>
 
-            <div class="row">
-              <label for="gap">Jarak antar grid (px)</label>
-              <input id="gap" type="number" min="0" max="100" step="1" value="0" />
-            </div>
-
-            <div class="small">
-              Titik bulat bisa digeser untuk mengubah garis. Area dalam grid bisa diseret untuk memindahkan semuanya.
+            <div id="autoSettings">
+              <div class="row">
+                <label for="pad">Padding ekstra tepi (px)</label>
+                <input id="pad" type="number" min="0" max="100" step="1" value="0" />
+              </div>
+              <div class="small">
+                Sistem mendeteksi dan menghitung jumlah item terpisah secara otomatis berdasarkan piksel yang tidak transparan.
+              </div>
             </div>
 
             <div class="btnrow" style="margin-top:10px;">
@@ -434,9 +453,13 @@
       controls: $("controls"),
       exportBox: $("exportBox"),
       fileName: $("fileName"),
+      mode: $("mode"),
+      gridSettings: $("gridSettings"),
+      autoSettings: $("autoSettings"),
       cols: $("cols"),
       rows: $("rows"),
       gap: $("gap"),
+      pad: $("pad"),
       split: $("split"),
       downloadZip: $("downloadZip"),
       status: $("status"),
@@ -458,6 +481,7 @@
     let previewH = 0;
     let gridState = null;
     let cropResults = [];
+    let currentMode = "auto";
 
     function setStatus(msg){
       els.status.innerHTML = msg;
@@ -479,14 +503,86 @@
       return sanitizeFileName(els.fileName.value);
     }
 
-    function getSettings(){
-      const cols = clamp(parseInt(els.cols.value || "1", 10), 1, 24);
-      const rows = clamp(parseInt(els.rows.value || "1", 10), 1, 24);
-      const gap = clamp(parseInt(els.gap.value || "0", 10), 0, 100);
-      els.cols.value = cols;
-      els.rows.value = rows;
-      els.gap.value = gap;
-      return { cols, rows, gap };
+    // Algoritma Connected Component untuk mendeteksi item terpisah
+    function detectItems() {
+      if (!sourceImage) return [];
+
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = sourceW;
+      tempCanvas.height = sourceH;
+      const ctx = tempCanvas.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(sourceImage, 0, 0);
+      const imgData = ctx.getImageData(0, 0, sourceW, sourceH);
+      const data = imgData.data;
+
+      const visited = new Uint8Array(sourceW * sourceH);
+      const boxes = [];
+      const maxQueue = sourceW * sourceH;
+      const qx = new Int32Array(maxQueue);
+      const qy = new Int32Array(maxQueue);
+
+      const dirs = [[1,0], [-1,0], [0,1], [0,-1], [1,1], [-1,-1], [1,-1], [-1,1]];
+
+      for (let y = 0; y < sourceH; y++) {
+        for (let x = 0; x < sourceW; x++) {
+          const startIdx = y * sourceW + x;
+          if (visited[startIdx] === 0) {
+            visited[startIdx] = 1;
+            const alpha = data[startIdx * 4 + 3];
+            
+            // Jika tidak transparan (alpha > 10)
+            if (alpha > 10) { 
+              let head = 0;
+              let tail = 0;
+              qx[tail] = x;
+              qy[tail] = y;
+              tail++;
+
+              let minX = x, maxX = x, minY = y, maxY = y;
+
+              // Flood fill
+              while (head < tail) {
+                const cx = qx[head];
+                const cy = qy[head];
+                head++;
+
+                if (cx < minX) minX = cx;
+                if (cx > maxX) maxX = cx;
+                if (cy < minY) minY = cy;
+                if (cy > maxY) maxY = cy;
+
+                for (let i = 0; i < 8; i++) {
+                  const nx = cx + dirs[i][0];
+                  const ny = cy + dirs[i][1];
+
+                  if (nx >= 0 && nx < sourceW && ny >= 0 && ny < sourceH) {
+                    const nIdx = ny * sourceW + nx;
+                    if (visited[nIdx] === 0) {
+                      visited[nIdx] = 1;
+                      if (data[nIdx * 4 + 3] > 10) {
+                        qx[tail] = nx;
+                        qy[tail] = ny;
+                        tail++;
+                      }
+                    }
+                  }
+                }
+              }
+
+              const w = maxX - minX + 1;
+              const h = maxY - minY + 1;
+              // Saring partikel sangat kecil (noise/debu ukuran 1x1 atau 2x2)
+              if (w > 2 || h > 2) {
+                boxes.push({ x: minX, y: minY, w, h });
+              }
+            }
+          }
+        }
+      }
+
+      // Urutkan kotak berdasarkan posisi (Atas ke Bawah, Kiri ke Kanan)
+      boxes.sort((a, b) => (a.y - b.y) || (a.x - b.x));
+      return boxes;
     }
 
     function syncCanvasSize(){
@@ -508,32 +604,54 @@
     }
 
     function buildInitialGrid(){
-      const { cols, rows } = getSettings();
+      const cols = clamp(parseInt(els.cols.value || "4", 10), 1, 24);
+      const rows = clamp(parseInt(els.rows.value || "4", 10), 1, 24);
+      const gap = clamp(parseInt(els.gap.value || "0", 10), 0, 100);
       const xs = [];
       const ys = [];
 
-      for(let i=0; i<=cols; i++){
-        xs.push(Math.round((sourceW / cols) * i));
-      }
-      for(let j=0; j<=rows; j++){
-        ys.push(Math.round((sourceH / rows) * j));
-      }
+      for(let i=0; i<=cols; i++) xs.push(Math.round((sourceW / cols) * i));
+      for(let j=0; j<=rows; j++) ys.push(Math.round((sourceH / rows) * j));
 
       gridState = {
-        cols,
-        rows,
-        gap: parseInt(els.gap.value, 10),
-        xs,
-        ys,
-        activeHandle: null
+        cols, rows, gap, xs, ys,
+        activeHandle: null,
+        autoBoxes: gridState ? gridState.autoBoxes : null
       };
+    }
+
+    function runAutoDetect() {
+      if(!sourceImage) return;
+      setStatus("Menganalisis item transparan...");
+      setTimeout(() => {
+        const boxes = detectItems();
+        if(!gridState) buildInitialGrid();
+        gridState.autoBoxes = boxes;
+        setStatus(`Berhasil mendeteksi <strong>${boxes.length}</strong> item terpisah.`);
+        renderAll();
+      }, 50);
     }
 
     function drawBase(){
       if(!sourceImage) return;
       const ctx = els.baseCanvas.getContext("2d");
       ctx.clearRect(0,0,previewW,previewH);
+      // Buat pattern transparan di belakang gambar
+      ctx.fillStyle = createCheckerboardPattern(ctx);
+      ctx.fillRect(0,0,previewW,previewH);
       ctx.drawImage(sourceImage, 0, 0, previewW, previewH);
+    }
+
+    function createCheckerboardPattern(ctx) {
+        const pCanvas = document.createElement('canvas');
+        pCanvas.width = 16; pCanvas.height = 16;
+        const pCtx = pCanvas.getContext('2d');
+        pCtx.fillStyle = '#efefef';
+        pCtx.fillRect(0,0,16,16);
+        pCtx.fillStyle = '#dfdfdf';
+        pCtx.fillRect(0,0,8,8);
+        pCtx.fillRect(8,8,8,8);
+        return ctx.createPattern(pCanvas, 'repeat');
     }
 
     function drawGrid(){
@@ -541,69 +659,93 @@
       const ctx = els.gridCanvas.getContext("2d");
       ctx.clearRect(0,0,previewW,previewH);
 
-      const gap = gridState.gap;
-      ctx.save();
-      ctx.strokeStyle = "rgba(0,0,0,0.95)";
-      ctx.fillStyle = "rgba(0,0,128,0.10)";
-      ctx.lineWidth = 1;
+      if(currentMode === "grid") {
+        els.gridCanvas.classList.add("mode-grid");
+        const gap = gridState.gap;
+        ctx.save();
+        ctx.strokeStyle = "rgba(0,0,0,0.95)";
+        ctx.fillStyle = "rgba(0,0,128,0.10)";
+        ctx.lineWidth = 1;
 
-      for(let r=0; r<gridState.rows; r++){
-        for(let c=0; c<gridState.cols; c++){
-          const x0 = gridState.xs[c];
-          const x1 = gridState.xs[c+1];
-          const y0 = gridState.ys[r];
-          const y1 = gridState.ys[r+1];
+        for(let r=0; r<gridState.rows; r++){
+          for(let c=0; c<gridState.cols; c++){
+            const x0 = gridState.xs[c];
+            const x1 = gridState.xs[c+1];
+            const y0 = gridState.ys[r];
+            const y1 = gridState.ys[r+1];
 
-          const padX = gap / 2;
-          const padY = gap / 2;
+            const sx0 = clamp(x0 + (c > 0 ? gap / 2 : 0), 0, sourceW);
+            const sy0 = clamp(y0 + (r > 0 ? gap / 2 : 0), 0, sourceH);
+            const sx1 = clamp(x1 - (c < gridState.cols - 1 ? gap / 2 : 0), 0, sourceW);
+            const sy1 = clamp(y1 - (r < gridState.rows - 1 ? gap / 2 : 0), 0, sourceH);
 
-          const sx0 = clamp(x0 + (c > 0 ? padX : 0), 0, sourceW);
-          const sy0 = clamp(y0 + (r > 0 ? padY : 0), 0, sourceH);
-          const sx1 = clamp(x1 - (c < gridState.cols - 1 ? padX : 0), 0, sourceW);
-          const sy1 = clamp(y1 - (r < gridState.rows - 1 ? padY : 0), 0, sourceH);
+            const px0 = sx0 * previewScale;
+            const py0 = sy0 * previewScale;
+            const pw = Math.max(0, (sx1 - sx0) * previewScale);
+            const ph = Math.max(0, (sy1 - sy0) * previewScale);
 
-          const px0 = sx0 * previewScale;
-          const py0 = sy0 * previewScale;
-          const pw = Math.max(0, (sx1 - sx0) * previewScale);
-          const ph = Math.max(0, (sy1 - sy0) * previewScale);
-
-          if(pw > 0 && ph > 0){
-            ctx.fillRect(px0, py0, pw, ph);
-            ctx.strokeRect(px0 + 0.5, py0 + 0.5, pw, ph);
+            if(pw > 0 && ph > 0){
+              ctx.fillRect(px0, py0, pw, ph);
+              ctx.strokeRect(px0 + 0.5, py0 + 0.5, pw, ph);
+            }
           }
         }
-      }
 
-      const radius = 8;
-      for(let i=0; i<gridState.xs.length; i++){
-        for(let j=0; j<gridState.ys.length; j++){
-          const x = gridState.xs[i] * previewScale;
-          const y = gridState.ys[j] * previewScale;
-          const active = gridState.activeHandle &&
-                         gridState.activeHandle.i === i &&
-                         gridState.activeHandle.j === j;
+        const radius = 8;
+        for(let i=0; i<gridState.xs.length; i++){
+          for(let j=0; j<gridState.ys.length; j++){
+            const x = gridState.xs[i] * previewScale;
+            const y = gridState.ys[j] * previewScale;
+            const active = gridState.activeHandle && gridState.activeHandle.i === i && gridState.activeHandle.j === j;
 
-          ctx.beginPath();
-          ctx.arc(x, y, radius, 0, Math.PI * 2);
-
-          if(active){
-            ctx.fillStyle = "rgba(0,0,255,1)";
-            ctx.shadowColor = "rgba(0,0,255,0.9)";
-            ctx.shadowBlur = 10;
-          }else{
-            ctx.fillStyle = "#ffffff";
-            ctx.shadowColor = "transparent";
-            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            if(active){
+              ctx.fillStyle = "rgba(0,0,255,1)";
+              ctx.shadowColor = "rgba(0,0,255,0.9)";
+              ctx.shadowBlur = 10;
+            }else{
+              ctx.fillStyle = "#ffffff";
+              ctx.shadowColor = "transparent";
+              ctx.shadowBlur = 0;
+            }
+            ctx.fill();
+            ctx.strokeStyle = active ? "rgba(255,255,255,0.95)" : "#000000";
+            ctx.lineWidth = 1;
+            ctx.stroke();
           }
-
-          ctx.fill();
-          ctx.strokeStyle = active ? "rgba(255,255,255,0.95)" : "#000000";
-          ctx.lineWidth = 1;
-          ctx.stroke();
         }
-      }
+        ctx.restore();
+      } else if (currentMode === "auto" && gridState.autoBoxes) {
+        els.gridCanvas.classList.remove("mode-grid");
+        ctx.save();
+        ctx.strokeStyle = "rgba(255,0,0,0.9)";
+        ctx.fillStyle = "rgba(255,0,0,0.15)";
+        ctx.lineWidth = 1.5;
 
-      ctx.restore();
+        const pad = clamp(parseInt(els.pad.value || "0", 10), 0, 100);
+
+        gridState.autoBoxes.forEach((box, index) => {
+          const sx0 = clamp(box.x - pad, 0, sourceW);
+          const sy0 = clamp(box.y - pad, 0, sourceH);
+          const sx1 = clamp(box.x + box.w + pad, 0, sourceW);
+          const sy1 = clamp(box.y + box.h + pad, 0, sourceH);
+
+          const px = sx0 * previewScale;
+          const py = sy0 * previewScale;
+          const pw = (sx1 - sx0) * previewScale;
+          const ph = (sy1 - sy0) * previewScale;
+
+          ctx.fillRect(px, py, pw, ph);
+          ctx.strokeRect(px + 0.5, py + 0.5, pw, ph);
+
+          ctx.fillStyle = "red";
+          ctx.font = "bold 12px Tahoma";
+          ctx.fillText(index + 1, px + 4, py + 14);
+          ctx.fillStyle = "rgba(255,0,0,0.15)";
+        });
+        ctx.restore();
+      }
     }
 
     function renderAll(){
@@ -613,23 +755,16 @@
     }
 
     function clampLinePositions(){
-      if(!gridState) return;
-
+      if(!gridState || currentMode !== "grid") return;
       const minCell = 12;
       const xs = gridState.xs;
       const ys = gridState.ys;
-
       xs[0] = clamp(xs[0], 0, sourceW);
       ys[0] = clamp(ys[0], 0, sourceH);
       xs[xs.length - 1] = clamp(xs[xs.length - 1], 0, sourceW);
       ys[ys.length - 1] = clamp(ys[ys.length - 1], 0, sourceH);
-
-      for(let i=1; i<xs.length-1; i++){
-        xs[i] = clamp(xs[i], xs[i-1] + minCell, xs[i+1] - minCell);
-      }
-      for(let j=1; j<ys.length-1; j++){
-        ys[j] = clamp(ys[j], ys[j-1] + minCell, ys[j+1] - minCell);
-      }
+      for(let i=1; i<xs.length-1; i++){ xs[i] = clamp(xs[i], xs[i-1] + minCell, xs[i+1] - minCell); }
+      for(let j=1; j<ys.length-1; j++){ ys[j] = clamp(ys[j], ys[j-1] + minCell, ys[j+1] - minCell); }
     }
 
     function loadFile(file){
@@ -650,16 +785,18 @@
         els.resultGrid.innerHTML = "";
         cropResults = [];
         els.fileName.value = sourceName;
-
-        if(!els.cols.value) els.cols.value = 4;
-        if(!els.rows.value) els.rows.value = 4;
-        if(!els.gap.value) els.gap.value = 0;
+        gridState = null;
 
         syncCanvasSize();
-        buildInitialGrid();
-        renderAll();
 
-        setStatus(`Gambar dimuat: <strong>${sourceW}×${sourceH}</strong>.`);
+        if (currentMode === "auto") {
+          runAutoDetect();
+        } else {
+          buildInitialGrid();
+          setStatus(`Gambar dimuat: <strong>${sourceW}×${sourceH}</strong>.`);
+          renderAll();
+        }
+
         URL.revokeObjectURL(url);
         els.downloadZip.disabled = true;
       };
@@ -672,68 +809,39 @@
 
     els.file.addEventListener("change", e => loadFile(e.target.files[0]));
 
-    els.cols.addEventListener("change", () => {
-      if(!sourceImage) return;
-      const nextCols = clamp(parseInt(els.cols.value || "1", 10), 1, 24);
-      els.cols.value = nextCols;
-
-      const old = gridState;
-      const newXs = [];
-      for(let i=0; i<=nextCols; i++){
-        const t = i / nextCols;
-        newXs.push(Math.round(sourceW * t));
+    els.mode.addEventListener("change", () => {
+      currentMode = els.mode.value;
+      if (currentMode === "auto") {
+        els.gridSettings.classList.add("hidden");
+        els.autoSettings.classList.remove("hidden");
+        if (sourceImage) {
+          if(!gridState || !gridState.autoBoxes) runAutoDetect();
+          else {
+            setStatus(`Mendeteksi <strong>${gridState.autoBoxes.length}</strong> item terpisah.`);
+            renderAll();
+          }
+        }
+      } else {
+        els.gridSettings.classList.remove("hidden");
+        els.autoSettings.classList.add("hidden");
+        if (sourceImage) {
+          if(!gridState) buildInitialGrid();
+          setStatus(`Mode Grid aktif.`);
+          renderAll();
+        }
       }
-
-      if(old){
-        gridState = {
-          cols: nextCols,
-          rows: old.rows,
-          gap: old.gap,
-          xs: newXs,
-          ys: old.ys.slice(),
-          activeHandle: null
-        };
-      }else{
-        buildInitialGrid();
-      }
-      renderAll();
     });
 
-    els.rows.addEventListener("change", () => {
-      if(!sourceImage) return;
-      const nextRows = clamp(parseInt(els.rows.value || "1", 10), 1, 24);
-      els.rows.value = nextRows;
-
-      const old = gridState;
-      const newYs = [];
-      for(let j=0; j<=nextRows; j++){
-        const t = j / nextRows;
-        newYs.push(Math.round(sourceH * t));
-      }
-
-      if(old){
-        gridState = {
-          cols: old.cols,
-          rows: nextRows,
-          gap: old.gap,
-          xs: old.xs.slice(),
-          ys: newYs,
-          activeHandle: null
-        };
-      }else{
-        buildInitialGrid();
-      }
-      renderAll();
+    els.pad.addEventListener("change", () => {
+      if(currentMode === "auto") renderAll();
     });
 
-    els.gap.addEventListener("change", () => {
-      if(!sourceImage) return;
-      const nextGap = clamp(parseInt(els.gap.value || "0", 10), 0, 100);
-      els.gap.value = nextGap;
-      if(gridState){
-        gridState.gap = nextGap;
+    ["cols", "rows", "gap"].forEach(id => {
+      els[id].addEventListener("change", () => {
+        if(!sourceImage || currentMode !== "grid") return;
+        buildInitialGrid(); // Recalculate basic grid distribution
         renderAll();
-      }
+      });
     });
 
     function triggerDownload(blob, filename) {
@@ -748,9 +856,47 @@
       setTimeout(() => URL.revokeObjectURL(url), 2000);
     }
 
+    async function processCropItem(sx0, sy0, w, h, index, baseName) {
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(sourceImage, sx0, sy0, w, h, 0, 0, w, h);
+
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+      const filename = `${baseName}-part-${String(index).padStart(2, "0")}.png`;
+      cropResults.push({ filename, blob, w, h });
+
+      const card = document.createElement("div");
+      card.className = "card";
+      
+      const thumb = document.createElement("div");
+      thumb.className = "thumb";
+      
+      const img = document.createElement("img");
+      img.src = URL.createObjectURL(blob);
+      img.alt = filename;
+      thumb.appendChild(img);
+
+      const meta = document.createElement("div");
+      meta.className = "cardMeta";
+      meta.innerHTML = `<span><strong>#${index}</strong></span><span>${w}×${h}</span>`;
+
+      const btnRow = document.createElement("div");
+      btnRow.className = "btnrow";
+      
+      const dl = document.createElement("button");
+      dl.textContent = "Download";
+      dl.addEventListener("click", () => triggerDownload(blob, filename));
+
+      btnRow.appendChild(dl);
+      card.appendChild(thumb);
+      card.appendChild(meta);
+      card.appendChild(btnRow);
+      els.resultGrid.appendChild(card);
+    }
+
     els.split.addEventListener("click", async () => {
       if(!sourceImage || !gridState) return;
-
       clampLinePositions();
       renderAll();
 
@@ -759,76 +905,44 @@
       els.resultHeader.classList.remove("hidden");
       els.exportBox.classList.remove("hidden");
       els.downloadZip.classList.add("hidden");
-
       setStatus("Memotong gambar...");
 
-      const gap = gridState.gap;
       const baseName = getBaseFileName();
       let index = 0;
 
-      for(let r=0; r<gridState.rows; r++){
-        for(let c=0; c<gridState.cols; c++){
-          const x0 = gridState.xs[c];
-          const x1 = gridState.xs[c+1];
-          const y0 = gridState.ys[r];
-          const y1 = gridState.ys[r+1];
-
-          const leftPad = c > 0 ? gap / 2 : 0;
-          const rightPad = c < gridState.cols - 1 ? gap / 2 : 0;
-          const topPad = r > 0 ? gap / 2 : 0;
-          const bottomPad = r < gridState.rows - 1 ? gap / 2 : 0;
-
-          const sx0 = clamp(Math.round(x0 + leftPad), 0, sourceW);
-          const sy0 = clamp(Math.round(y0 + topPad), 0, sourceH);
-          const sx1 = clamp(Math.round(x1 - rightPad), 0, sourceW);
-          const sy1 = clamp(Math.round(y1 - bottomPad), 0, sourceH);
-
+      if (currentMode === "auto") {
+        if (!gridState.autoBoxes || gridState.autoBoxes.length === 0) {
+          setStatus("Tidak ada item yang terdeteksi. Pastikan gambar transparan.");
+          return;
+        }
+        const pad = clamp(parseInt(els.pad.value || "0", 10), 0, 100);
+        for (let i = 0; i < gridState.autoBoxes.length; i++) {
+          const box = gridState.autoBoxes[i];
+          const sx0 = clamp(box.x - pad, 0, sourceW);
+          const sy0 = clamp(box.y - pad, 0, sourceH);
+          const sx1 = clamp(box.x + box.w + pad, 0, sourceW);
+          const sy1 = clamp(box.y + box.h + pad, 0, sourceH);
+          
           const w = sx1 - sx0;
           const h = sy1 - sy0;
           if(w <= 0 || h <= 0) continue;
-
           index++;
-
-          const canvas = document.createElement("canvas");
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(sourceImage, sx0, sy0, w, h, 0, 0, w, h);
-
-          const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
-          const filename = `${baseName}-part-${String(index).padStart(2, "0")}.png`;
-
-          cropResults.push({ filename, blob, w, h });
-
-          const card = document.createElement("div");
-          card.className = "card";
-
-          const thumb = document.createElement("div");
-          thumb.className = "thumb";
-
-          const img = document.createElement("img");
-          img.src = URL.createObjectURL(blob);
-          img.alt = filename;
-          thumb.appendChild(img);
-
-          const meta = document.createElement("div");
-          meta.className = "cardMeta";
-          meta.innerHTML = `<span><strong>#${index}</strong></span><span>${w}×${h}</span>`;
-
-          const btnRow = document.createElement("div");
-          btnRow.className = "btnrow";
-
-          const dl = document.createElement("button");
-          dl.textContent = "Download";
-          dl.addEventListener("click", () => {
-            triggerDownload(blob, filename);
-          });
-
-          btnRow.appendChild(dl);
-          card.appendChild(thumb);
-          card.appendChild(meta);
-          card.appendChild(btnRow);
-          els.resultGrid.appendChild(card);
+          await processCropItem(sx0, sy0, w, h, index, baseName);
+        }
+      } else {
+        const gap = gridState.gap;
+        for(let r=0; r<gridState.rows; r++){
+          for(let c=0; c<gridState.cols; c++){
+            const sx0 = clamp(Math.round(gridState.xs[c] + (c > 0 ? gap / 2 : 0)), 0, sourceW);
+            const sy0 = clamp(Math.round(gridState.ys[r] + (r > 0 ? gap / 2 : 0)), 0, sourceH);
+            const sx1 = clamp(Math.round(gridState.xs[c+1] - (c < gridState.cols - 1 ? gap / 2 : 0)), 0, sourceW);
+            const sy1 = clamp(Math.round(gridState.ys[r+1] - (r < gridState.rows - 1 ? gap / 2 : 0)), 0, sourceH);
+            const w = sx1 - sx0;
+            const h = sy1 - sy0;
+            if(w <= 0 || h <= 0) continue;
+            index++;
+            await processCropItem(sx0, sy0, w, h, index, baseName);
+          }
         }
       }
 
@@ -843,15 +957,12 @@
 
     els.downloadZip.addEventListener("click", async () => {
       if(!cropResults.length) return;
-
       if(typeof JSZip === "undefined"){
         setStatus("JSZip belum termuat. ZIP tidak bisa dibuat saat ini.");
         return;
       }
-
       const baseName = getBaseFileName();
       setStatus("Menyiapkan ZIP...");
-
       try{
         const zip = new JSZip();
         const folder = zip.folder(`${baseName}-parts`);
@@ -867,7 +978,7 @@
       }
     });
 
-    // Drag grid from inside area, not from circles
+    // --- LOGIC UNTUK DRAG GRID MANUAL ---
     let draggingGrid = false;
     let activeHandle = null;
     let dragStart = null;
@@ -882,16 +993,13 @@
     }
 
     function findNearestHandle(px, py){
-      if(!gridState) return null;
+      if(!gridState || currentMode !== "grid") return null;
       const hitRadius = 18;
       let best = null;
       let bestDist = Infinity;
-
       for(let i=0; i<gridState.xs.length; i++){
         for(let j=0; j<gridState.ys.length; j++){
-          const x = gridState.xs[i] * previewScale;
-          const y = gridState.ys[j] * previewScale;
-          const d = Math.hypot(px - x, py - y);
+          const d = Math.hypot(px - gridState.xs[i]*previewScale, py - gridState.ys[j]*previewScale);
           if(d <= hitRadius && d < bestDist){
             bestDist = d;
             best = { i, j };
@@ -902,7 +1010,7 @@
     }
 
     function isInsideInnerGrid(px, py){
-      if(!gridState) return false;
+      if(!gridState || currentMode !== "grid") return false;
       const left = Math.min(...gridState.xs) * previewScale;
       const right = Math.max(...gridState.xs) * previewScale;
       const top = Math.min(...gridState.ys) * previewScale;
@@ -911,8 +1019,7 @@
     }
 
     els.gridCanvas.addEventListener("pointerdown", (evt) => {
-      if(!sourceImage || !gridState) return;
-
+      if(!sourceImage || !gridState || currentMode !== "grid") return;
       const p = getPointerInCanvas(evt);
       const hit = findNearestHandle(p.x, p.y);
 
@@ -927,7 +1034,6 @@
         renderAll();
         return;
       }
-
       if(isInsideInnerGrid(p.x, p.y)){
         draggingGrid = true;
         activeHandle = null;
@@ -941,8 +1047,7 @@
     });
 
     els.gridCanvas.addEventListener("pointermove", (evt) => {
-      if(!sourceImage || !gridState || !dragStart) return;
-
+      if(!sourceImage || !gridState || !dragStart || currentMode !== "grid") return;
       const p = getPointerInCanvas(evt);
       const dx = Math.round((p.x - dragStart.x) / previewScale);
       const dy = Math.round((p.y - dragStart.y) / previewScale);
@@ -951,37 +1056,27 @@
         const { i, j } = activeHandle;
         gridState.xs = startXs.slice();
         gridState.ys = startYs.slice();
-
         gridState.xs[i] = startXs[i] + dx;
         gridState.ys[j] = startYs[j] + dy;
-
         clampLinePositions();
         gridState.activeHandle = activeHandle;
         renderAll();
         return;
       }
-
       if(draggingGrid){
         const newXs = startXs.map(v => v + dx);
         const newYs = startYs.map(v => v + dy);
-
         const minX = Math.min(...newXs);
         const maxX = Math.max(...newXs);
         const minY = Math.min(...newYs);
         const maxY = Math.max(...newYs);
-
-        let shiftX = 0;
-        let shiftY = 0;
-
+        let shiftX = 0; let shiftY = 0;
         if(minX < 0) shiftX = -minX;
         if(maxX + shiftX > sourceW) shiftX += sourceW - (maxX + shiftX);
-
         if(minY < 0) shiftY = -minY;
         if(maxY + shiftY > sourceH) shiftY += sourceH - (maxY + shiftY);
-
         gridState.xs = newXs.map(v => v + shiftX);
         gridState.ys = newYs.map(v => v + shiftY);
-
         clampLinePositions();
         gridState.activeHandle = null;
         renderAll();
@@ -989,12 +1084,8 @@
     });
 
     function endDrag(){
-      draggingGrid = false;
-      activeHandle = null;
-      dragStart = null;
-      startXs = null;
-      startYs = null;
-      if(gridState){
+      draggingGrid = false; activeHandle = null; dragStart = null; startXs = null; startYs = null;
+      if(gridState && currentMode === "grid"){
         gridState.activeHandle = null;
         renderAll();
       }
@@ -1005,10 +1096,7 @@
     els.gridCanvas.addEventListener("pointerleave", endDrag);
 
     window.addEventListener("resize", () => {
-      if(sourceImage){
-        syncCanvasSize();
-        renderAll();
-      }
+      if(sourceImage){ syncCanvasSize(); renderAll(); }
     });
 
     setStatus("Belum ada gambar dimuat.");
