@@ -188,6 +188,13 @@
       font-weight:700;
     }
 
+    .merge-btn {
+      background: #e6e6a1; 
+      width: 100%;
+      font-weight: 700;
+    }
+    .merge-btn:hover { background: #fcfcb5; }
+
     .preview{
       min-width:0;
       display:flex;
@@ -315,6 +322,23 @@
       font-size:12px;
     }
 
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      background: #efefef;
+      padding: 4px;
+      border: 1px solid #aaa;
+    }
+
+    .checkbox-row input {
+      cursor: pointer;
+      margin: 0;
+    }
+
     .partNameInput{
       width: 100%;
       font-family: inherit;
@@ -326,18 +350,8 @@
       background: var(--field);
     }
 
-    .kbd{
-      border:1px solid #666;
-      background:#efefef;
-      padding:1px 4px;
-      border-radius:3px;
-      font-size:11px;
-    }
-
     @media (max-width: 920px){
-      .content{
-        grid-template-columns:1fr;
-      }
+      .content{ grid-template-columns:1fr; }
     }
 
     @media (max-width: 520px){
@@ -401,18 +415,12 @@
                 <label for="gap">Jarak antar grid (px)</label>
                 <input id="gap" type="number" min="0" max="100" step="1" value="0" />
               </div>
-              <div class="small">
-                Titik bulat bisa digeser untuk mengubah garis. Area dalam grid bisa diseret untuk memindahkan semuanya.
-              </div>
             </div>
 
             <div id="autoSettings">
               <div class="row">
                 <label for="pad">Padding ekstra tepi (px)</label>
                 <input id="pad" type="number" min="0" max="100" step="1" value="0" />
-              </div>
-              <div class="small">
-                Sistem mendeteksi dan menghitung jumlah item terpisah secara otomatis berdasarkan piksel yang tidak transparan.
               </div>
             </div>
 
@@ -422,12 +430,15 @@
           </div>
 
           <div id="exportBox" class="group hidden">
-            <h3>Ekspor</h3>
+            <h3>Ekspor & Modifikasi</h3>
+            <div class="btnrow" style="margin-bottom: 8px;">
+              <button id="mergeBtn" class="merge-btn hidden">Gabung Item Terpilih</button>
+            </div>
             <div class="btnrow">
               <button id="downloadZip" class="primary hidden">Download ZIP</button>
             </div>
             <div class="small" style="margin-top:8px;">
-              Kamu bisa mengganti nama masing-masing potongan di kotak bawah sebelum menekan Download.
+              Centang beberapa potongan gambar di samping lalu tekan <strong>Gabung</strong> jika ada partikel terpisah yang seharusnya menjadi satu kesatuan.
             </div>
           </div>
 
@@ -475,6 +486,7 @@
       gap: $("gap"),
       pad: $("pad"),
       split: $("split"),
+      mergeBtn: $("mergeBtn"),
       downloadZip: $("downloadZip"),
       status: $("status"),
       resultHeader: $("resultHeader"),
@@ -487,7 +499,6 @@
     };
 
     let sourceImage = null;
-    let sourceName = "image";
     let sourceW = 0;
     let sourceH = 0;
     let previewScale = 1;
@@ -496,34 +507,26 @@
     let gridState = null;
     let cropResults = [];
     let currentMode = "auto";
+    let globalIdCounter = 0;
 
-    function setStatus(msg){
-      els.status.innerHTML = msg;
-    }
-
-    function clamp(v, min, max){
-      return Math.max(min, Math.min(max, v));
-    }
-
-    function sanitizeFileName(name){
-      const cleaned = (name || "image")
-        .trim()
-        .replace(/[\\\/:*?"<>|]+/g, "_")
-        .replace(/\s+/g, " ");
-      return cleaned || "image";
-    }
+    function setStatus(msg){ els.status.innerHTML = msg; }
+    function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
 
     function getBaseFileName(){
-      return sanitizeFileName(els.fileName.value);
+      return (els.fileName.value || "image").trim().replace(/[\\\/:*?"<>|]+/g, "_") || "image";
     }
 
-    // Algoritma Connected Component untuk mendeteksi item terpisah
+    function getSafeFilename(name, defaultName) {
+      let clean = name.trim();
+      if(!clean) return defaultName;
+      if(!clean.toLowerCase().endsWith('.png')) clean += '.png';
+      return clean;
+    }
+
     function detectItems() {
       if (!sourceImage) return [];
-
       const tempCanvas = document.createElement("canvas");
-      tempCanvas.width = sourceW;
-      tempCanvas.height = sourceH;
+      tempCanvas.width = sourceW; tempCanvas.height = sourceH;
       const ctx = tempCanvas.getContext("2d", { willReadFrequently: true });
       ctx.drawImage(sourceImage, 0, 0);
       const imgData = ctx.getImageData(0, 0, sourceW, sourceH);
@@ -534,7 +537,6 @@
       const maxQueue = sourceW * sourceH;
       const qx = new Int32Array(maxQueue);
       const qy = new Int32Array(maxQueue);
-
       const dirs = [[1,0], [-1,0], [0,1], [0,-1], [1,1], [-1,-1], [1,-1], [-1,1]];
 
       for (let y = 0; y < sourceH; y++) {
@@ -542,51 +544,34 @@
           const startIdx = y * sourceW + x;
           if (visited[startIdx] === 0) {
             visited[startIdx] = 1;
-            const alpha = data[startIdx * 4 + 3];
-            
-            // Jika tidak transparan (alpha > 10)
-            if (alpha > 10) { 
-              let head = 0;
-              let tail = 0;
-              qx[tail] = x;
-              qy[tail] = y;
-              tail++;
-
+            if (data[startIdx * 4 + 3] > 10) { 
+              let head = 0, tail = 0;
+              qx[tail] = x; qy[tail] = y; tail++;
               let minX = x, maxX = x, minY = y, maxY = y;
 
               while (head < tail) {
-                const cx = qx[head];
-                const cy = qy[head];
+                const cx = qx[head], cy = qy[head];
                 head++;
-
                 if (cx < minX) minX = cx;
                 if (cx > maxX) maxX = cx;
                 if (cy < minY) minY = cy;
                 if (cy > maxY) maxY = cy;
 
                 for (let i = 0; i < 8; i++) {
-                  const nx = cx + dirs[i][0];
-                  const ny = cy + dirs[i][1];
-
+                  const nx = cx + dirs[i][0], ny = cy + dirs[i][1];
                   if (nx >= 0 && nx < sourceW && ny >= 0 && ny < sourceH) {
                     const nIdx = ny * sourceW + nx;
                     if (visited[nIdx] === 0) {
                       visited[nIdx] = 1;
                       if (data[nIdx * 4 + 3] > 10) {
-                        qx[tail] = nx;
-                        qy[tail] = ny;
-                        tail++;
+                        qx[tail] = nx; qy[tail] = ny; tail++;
                       }
                     }
                   }
                 }
               }
-
-              const w = maxX - minX + 1;
-              const h = maxY - minY + 1;
-              if (w > 2 || h > 2) {
-                boxes.push({ x: minX, y: minY, w, h });
-              }
+              const w = maxX - minX + 1, h = maxY - minY + 1;
+              if (w > 2 || h > 2) boxes.push({ x: minX, y: minY, w, h });
             }
           }
         }
@@ -597,17 +582,12 @@
 
     function syncCanvasSize(){
       if(!sourceImage) return;
-      const maxPreview = 1100;
-      previewScale = Math.min(1, maxPreview / Math.max(sourceW, sourceH));
+      previewScale = Math.min(1, 1100 / Math.max(sourceW, sourceH));
       previewW = Math.max(1, Math.round(sourceW * previewScale));
       previewH = Math.max(1, Math.round(sourceH * previewScale));
-
       els.canvasWrap.style.aspectRatio = `${previewW} / ${previewH}`;
-      els.baseCanvas.width = previewW;
-      els.baseCanvas.height = previewH;
-      els.gridCanvas.width = previewW;
-      els.gridCanvas.height = previewH;
-
+      els.baseCanvas.width = previewW; els.baseCanvas.height = previewH;
+      els.gridCanvas.width = previewW; els.gridCanvas.height = previewH;
       els.baseCanvas.classList.remove("hidden");
       els.gridCanvas.classList.remove("hidden");
       els.empty.classList.add("hidden");
@@ -617,17 +597,10 @@
       const cols = clamp(parseInt(els.cols.value || "4", 10), 1, 24);
       const rows = clamp(parseInt(els.rows.value || "4", 10), 1, 24);
       const gap = clamp(parseInt(els.gap.value || "0", 10), 0, 100);
-      const xs = [];
-      const ys = [];
-
+      const xs = [], ys = [];
       for(let i=0; i<=cols; i++) xs.push(Math.round((sourceW / cols) * i));
       for(let j=0; j<=rows; j++) ys.push(Math.round((sourceH / rows) * j));
-
-      gridState = {
-        cols, rows, gap, xs, ys,
-        activeHandle: null,
-        autoBoxes: gridState ? gridState.autoBoxes : null
-      };
+      gridState = { cols, rows, gap, xs, ys, activeHandle: null, autoBoxes: gridState ? gridState.autoBoxes : null };
     }
 
     function runAutoDetect() {
@@ -646,21 +619,16 @@
       if(!sourceImage) return;
       const ctx = els.baseCanvas.getContext("2d");
       ctx.clearRect(0,0,previewW,previewH);
-      ctx.fillStyle = createCheckerboardPattern(ctx);
+      
+      const pCanvas = document.createElement('canvas');
+      pCanvas.width = 16; pCanvas.height = 16;
+      const pCtx = pCanvas.getContext('2d');
+      pCtx.fillStyle = '#efefef'; pCtx.fillRect(0,0,16,16);
+      pCtx.fillStyle = '#dfdfdf'; pCtx.fillRect(0,0,8,8); pCtx.fillRect(8,8,8,8);
+      
+      ctx.fillStyle = ctx.createPattern(pCanvas, 'repeat');
       ctx.fillRect(0,0,previewW,previewH);
       ctx.drawImage(sourceImage, 0, 0, previewW, previewH);
-    }
-
-    function createCheckerboardPattern(ctx) {
-        const pCanvas = document.createElement('canvas');
-        pCanvas.width = 16; pCanvas.height = 16;
-        const pCtx = pCanvas.getContext('2d');
-        pCtx.fillStyle = '#efefef';
-        pCtx.fillRect(0,0,16,16);
-        pCtx.fillStyle = '#dfdfdf';
-        pCtx.fillRect(0,0,8,8);
-        pCtx.fillRect(8,8,8,8);
-        return ctx.createPattern(pCanvas, 'repeat');
     }
 
     function drawGrid(){
@@ -670,150 +638,79 @@
 
       if(currentMode === "grid") {
         els.gridCanvas.classList.add("mode-grid");
-        const gap = gridState.gap;
         ctx.save();
-        ctx.strokeStyle = "rgba(0,0,0,0.95)";
-        ctx.fillStyle = "rgba(0,0,128,0.10)";
-        ctx.lineWidth = 1;
-
+        ctx.strokeStyle = "rgba(0,0,0,0.95)"; ctx.fillStyle = "rgba(0,0,128,0.10)";
+        
         for(let r=0; r<gridState.rows; r++){
           for(let c=0; c<gridState.cols; c++){
-            const x0 = gridState.xs[c];
-            const x1 = gridState.xs[c+1];
-            const y0 = gridState.ys[r];
-            const y1 = gridState.ys[r+1];
-
-            const sx0 = clamp(x0 + (c > 0 ? gap / 2 : 0), 0, sourceW);
-            const sy0 = clamp(y0 + (r > 0 ? gap / 2 : 0), 0, sourceH);
-            const sx1 = clamp(x1 - (c < gridState.cols - 1 ? gap / 2 : 0), 0, sourceW);
-            const sy1 = clamp(y1 - (r < gridState.rows - 1 ? gap / 2 : 0), 0, sourceH);
-
-            const px0 = sx0 * previewScale;
-            const py0 = sy0 * previewScale;
-            const pw = Math.max(0, (sx1 - sx0) * previewScale);
-            const ph = Math.max(0, (sy1 - sy0) * previewScale);
-
+            const sx0 = clamp(gridState.xs[c] + (c > 0 ? gridState.gap / 2 : 0), 0, sourceW);
+            const sy0 = clamp(gridState.ys[r] + (r > 0 ? gridState.gap / 2 : 0), 0, sourceH);
+            const sx1 = clamp(gridState.xs[c+1] - (c < gridState.cols - 1 ? gridState.gap / 2 : 0), 0, sourceW);
+            const sy1 = clamp(gridState.ys[r+1] - (r < gridState.rows - 1 ? gridState.gap / 2 : 0), 0, sourceH);
+            const pw = Math.max(0, (sx1 - sx0) * previewScale), ph = Math.max(0, (sy1 - sy0) * previewScale);
             if(pw > 0 && ph > 0){
-              ctx.fillRect(px0, py0, pw, ph);
-              ctx.strokeRect(px0 + 0.5, py0 + 0.5, pw, ph);
+              ctx.fillRect(sx0*previewScale, sy0*previewScale, pw, ph);
+              ctx.strokeRect(sx0*previewScale + 0.5, sy0*previewScale + 0.5, pw, ph);
             }
           }
         }
-
-        const radius = 8;
         for(let i=0; i<gridState.xs.length; i++){
           for(let j=0; j<gridState.ys.length; j++){
-            const x = gridState.xs[i] * previewScale;
-            const y = gridState.ys[j] * previewScale;
             const active = gridState.activeHandle && gridState.activeHandle.i === i && gridState.activeHandle.j === j;
-
             ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            if(active){
-              ctx.fillStyle = "rgba(0,0,255,1)";
-              ctx.shadowColor = "rgba(0,0,255,0.9)";
-              ctx.shadowBlur = 10;
-            }else{
-              ctx.fillStyle = "#ffffff";
-              ctx.shadowColor = "transparent";
-              ctx.shadowBlur = 0;
-            }
-            ctx.fill();
-            ctx.strokeStyle = active ? "rgba(255,255,255,0.95)" : "#000000";
-            ctx.lineWidth = 1;
-            ctx.stroke();
+            ctx.arc(gridState.xs[i]*previewScale, gridState.ys[j]*previewScale, 8, 0, Math.PI * 2);
+            ctx.fillStyle = active ? "rgba(0,0,255,1)" : "#ffffff";
+            ctx.fill(); ctx.stroke();
           }
         }
         ctx.restore();
-      } else if (currentMode === "auto" && gridState.autoBoxes) {
+      } else if (gridState.autoBoxes) {
         els.gridCanvas.classList.remove("mode-grid");
-        ctx.save();
-        ctx.strokeStyle = "rgba(255,0,0,0.9)";
-        ctx.fillStyle = "rgba(255,0,0,0.15)";
-        ctx.lineWidth = 1.5;
-
+        ctx.save(); ctx.strokeStyle = "rgba(255,0,0,0.9)"; ctx.lineWidth = 1.5;
         const pad = clamp(parseInt(els.pad.value || "0", 10), 0, 100);
 
         gridState.autoBoxes.forEach((box, index) => {
-          const sx0 = clamp(box.x - pad, 0, sourceW);
-          const sy0 = clamp(box.y - pad, 0, sourceH);
-          const sx1 = clamp(box.x + box.w + pad, 0, sourceW);
-          const sy1 = clamp(box.y + box.h + pad, 0, sourceH);
+          const sx0 = clamp(box.x - pad, 0, sourceW), sy0 = clamp(box.y - pad, 0, sourceH);
+          const sx1 = clamp(box.x + box.w + pad, 0, sourceW), sy1 = clamp(box.y + box.h + pad, 0, sourceH);
+          const px = sx0 * previewScale, py = sy0 * previewScale;
+          const pw = (sx1 - sx0) * previewScale, ph = (sy1 - sy0) * previewScale;
 
-          const px = sx0 * previewScale;
-          const py = sy0 * previewScale;
-          const pw = (sx1 - sx0) * previewScale;
-          const ph = (sy1 - sy0) * previewScale;
-
-          ctx.fillRect(px, py, pw, ph);
           ctx.strokeRect(px + 0.5, py + 0.5, pw, ph);
-
-          ctx.fillStyle = "red";
-          ctx.font = "bold 12px Tahoma";
+          ctx.fillStyle = "red"; ctx.font = "bold 12px Tahoma";
           ctx.fillText(index + 1, px + 4, py + 14);
-          ctx.fillStyle = "rgba(255,0,0,0.15)";
         });
         ctx.restore();
       }
     }
 
     function renderAll(){
-      if(!sourceImage || !gridState) return;
-      drawBase();
-      drawGrid();
+      if(sourceImage && gridState) { drawBase(); drawGrid(); }
     }
 
     function clampLinePositions(){
       if(!gridState || currentMode !== "grid") return;
-      const minCell = 12;
-      const xs = gridState.xs;
-      const ys = gridState.ys;
-      xs[0] = clamp(xs[0], 0, sourceW);
-      ys[0] = clamp(ys[0], 0, sourceH);
-      xs[xs.length - 1] = clamp(xs[xs.length - 1], 0, sourceW);
-      ys[ys.length - 1] = clamp(ys[ys.length - 1], 0, sourceH);
-      for(let i=1; i<xs.length-1; i++){ xs[i] = clamp(xs[i], xs[i-1] + minCell, xs[i+1] - minCell); }
-      for(let j=1; j<ys.length-1; j++){ ys[j] = clamp(ys[j], ys[j-1] + minCell, ys[j+1] - minCell); }
+      gridState.xs[0] = clamp(gridState.xs[0], 0, sourceW);
+      gridState.ys[0] = clamp(gridState.ys[0], 0, sourceH);
+      gridState.xs[gridState.xs.length-1] = clamp(gridState.xs[gridState.xs.length-1], 0, sourceW);
+      gridState.ys[gridState.ys.length-1] = clamp(gridState.ys[gridState.ys.length-1], 0, sourceH);
+      for(let i=1; i<gridState.xs.length-1; i++) gridState.xs[i] = clamp(gridState.xs[i], gridState.xs[i-1]+12, gridState.xs[i+1]-12);
+      for(let j=1; j<gridState.ys.length-1; j++) gridState.ys[j] = clamp(gridState.ys[j], gridState.ys[j-1]+12, gridState.ys[j+1]-12);
     }
 
     function loadFile(file){
       if(!file) return;
-      sourceName = (file.name || "image").replace(/\.[^.]+$/, "") || "image";
-
-      const url = URL.createObjectURL(file);
+      els.fileName.value = file.name.replace(/\.[^.]+$/, "") || "image";
       const img = new Image();
       img.onload = () => {
-        sourceImage = img;
-        sourceW = img.naturalWidth || img.width;
-        sourceH = img.naturalHeight || img.height;
-
-        els.controls.classList.remove("hidden");
-        els.split.classList.remove("hidden");
-        els.exportBox.classList.add("hidden");
-        els.resultHeader.classList.add("hidden");
-        els.resultGrid.innerHTML = "";
-        cropResults = [];
-        els.fileName.value = sourceName;
-        gridState = null;
-
+        sourceImage = img; sourceW = img.width; sourceH = img.height;
+        els.controls.classList.remove("hidden"); els.split.classList.remove("hidden");
+        els.exportBox.classList.add("hidden"); els.resultHeader.classList.add("hidden");
+        els.resultGrid.innerHTML = ""; cropResults = []; gridState = null;
         syncCanvasSize();
-
-        if (currentMode === "auto") {
-          runAutoDetect();
-        } else {
-          buildInitialGrid();
-          setStatus(`Gambar dimuat: <strong>${sourceW}×${sourceH}</strong>.`);
-          renderAll();
-        }
-
-        URL.revokeObjectURL(url);
-        els.downloadZip.disabled = true;
+        if (currentMode === "auto") runAutoDetect();
+        else { buildInitialGrid(); setStatus(`Gambar dimuat: <strong>${sourceW}×${sourceH}</strong>.`); renderAll(); }
       };
-      img.onerror = () => {
-        setStatus("Gagal membaca gambar.");
-        URL.revokeObjectURL(url);
-      };
-      img.src = url;
+      img.src = URL.createObjectURL(file);
     }
 
     els.file.addEventListener("change", e => loadFile(e.target.files[0]));
@@ -821,337 +718,232 @@
     els.mode.addEventListener("change", () => {
       currentMode = els.mode.value;
       if (currentMode === "auto") {
-        els.gridSettings.classList.add("hidden");
-        els.autoSettings.classList.remove("hidden");
-        if (sourceImage) {
-          if(!gridState || !gridState.autoBoxes) runAutoDetect();
-          else {
-            setStatus(`Mendeteksi <strong>${gridState.autoBoxes.length}</strong> item terpisah.`);
-            renderAll();
-          }
-        }
+        els.gridSettings.classList.add("hidden"); els.autoSettings.classList.remove("hidden");
+        if(sourceImage && (!gridState || !gridState.autoBoxes)) runAutoDetect(); else renderAll();
       } else {
-        els.gridSettings.classList.remove("hidden");
-        els.autoSettings.classList.add("hidden");
-        if (sourceImage) {
-          if(!gridState) buildInitialGrid();
-          setStatus(`Mode Grid aktif.`);
-          renderAll();
-        }
+        els.gridSettings.classList.remove("hidden"); els.autoSettings.classList.add("hidden");
+        if(sourceImage && !gridState) buildInitialGrid(); else renderAll();
       }
     });
 
-    els.pad.addEventListener("change", () => {
-      if(currentMode === "auto") renderAll();
-    });
-
+    els.pad.addEventListener("change", () => { if(currentMode === "auto") renderAll(); });
     ["cols", "rows", "gap"].forEach(id => {
       els[id].addEventListener("change", () => {
-        if(!sourceImage || currentMode !== "grid") return;
-        buildInitialGrid(); 
-        renderAll();
+        if(sourceImage && currentMode === "grid"){ buildInitialGrid(); renderAll(); }
       });
     });
 
     function triggerDownload(blob, filename) {
       const a = document.createElement("a");
       const url = URL.createObjectURL(blob);
-      a.href = url;
-      a.download = filename;
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
     }
 
-    function getSafeFilename(name, defaultName) {
-      let clean = name.trim();
-      if(!clean) return defaultName;
-      if(!clean.toLowerCase().endsWith('.png')) clean += '.png';
-      return clean;
-    }
-
+    // Pembuatan setiap item potongan
     async function processCropItem(sx0, sy0, w, h, index, baseName) {
       const canvas = document.createElement("canvas");
       canvas.width = w; canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(sourceImage, sx0, sy0, w, h, 0, 0, w, h);
-
+      canvas.getContext("2d").drawImage(sourceImage, sx0, sy0, w, h, 0, 0, w, h);
+      
       const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
       const defaultFilename = `${baseName}-part-${String(index).padStart(2, "0")}.png`;
-      
-      // Simpan referensi ke cropResults
-      const resultObj = { defaultFilename, blob, w, h };
-      const arrayIndex = cropResults.push(resultObj) - 1;
+      const id = globalIdCounter++;
+
+      const resultObj = { id, index, defaultFilename, currentName: defaultFilename, blob, sx0, sy0, w, h };
+      cropResults.push(resultObj);
 
       const card = document.createElement("div");
       card.className = "card";
       
-      const thumb = document.createElement("div");
-      thumb.className = "thumb";
-      
-      const img = document.createElement("img");
-      img.src = URL.createObjectURL(blob);
-      img.alt = defaultFilename;
+      const thumb = document.createElement("div"); thumb.className = "thumb";
+      const img = document.createElement("img"); img.src = URL.createObjectURL(blob);
       thumb.appendChild(img);
 
-      const meta = document.createElement("div");
-      meta.className = "cardMeta";
+      const meta = document.createElement("div"); meta.className = "cardMeta";
       meta.innerHTML = `<span><strong>#${index}</strong></span><span>${w}×${h}</span>`;
 
-      // Input teks untuk ganti nama
+      // Checkbox untuk fitur penggabungan (Merge)
+      const lbl = document.createElement("label");
+      lbl.className = "checkbox-row";
+      const chk = document.createElement("input");
+      chk.type = "checkbox"; chk.className = "merge-check"; chk.dataset.id = id;
+      lbl.appendChild(chk);
+      lbl.appendChild(document.createTextNode("Pilih untuk digabung"));
+
       const nameInput = document.createElement("input");
-      nameInput.type = "text";
-      nameInput.className = "partNameInput";
+      nameInput.type = "text"; nameInput.className = "partNameInput";
       nameInput.value = defaultFilename;
-      nameInput.id = `name-input-${arrayIndex}`; // ID agar mudah diambil nilainya saat ekstrak ZIP
+      // Langsung simpan nama baru ke objek untuk menghindari kesalahan saat ekstrak ZIP
+      nameInput.addEventListener("input", (e) => resultObj.currentName = e.target.value);
 
-      const btnRow = document.createElement("div");
-      btnRow.className = "btnrow";
-      
-      const dl = document.createElement("button");
-      dl.textContent = "Download";
-      dl.style.flex = "1";
-      dl.addEventListener("click", () => {
-        const finalName = getSafeFilename(nameInput.value, defaultFilename);
-        triggerDownload(blob, finalName);
-      });
-
+      const btnRow = document.createElement("div"); btnRow.className = "btnrow";
+      const dl = document.createElement("button"); dl.textContent = "Download"; dl.style.flex = "1";
+      dl.addEventListener("click", () => triggerDownload(blob, getSafeFilename(resultObj.currentName, defaultFilename)));
       btnRow.appendChild(dl);
-      card.appendChild(thumb);
-      card.appendChild(meta);
-      card.appendChild(nameInput);
-      card.appendChild(btnRow);
+
+      card.append(thumb, meta, lbl, nameInput, btnRow);
       els.resultGrid.appendChild(card);
     }
 
+    // Fitur Gabung Item Terpilih
+    els.resultGrid.addEventListener("change", (e) => {
+      if (e.target.classList.contains("merge-check")) {
+        const checked = document.querySelectorAll(".merge-check:checked");
+        els.mergeBtn.classList.toggle("hidden", checked.length < 2);
+      }
+    });
+
+    els.mergeBtn.addEventListener("click", async () => {
+      const checkboxes = document.querySelectorAll(".merge-check:checked");
+      if(checkboxes.length < 2) return;
+
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      const idsToMerge = Array.from(checkboxes).map(cb => parseInt(cb.dataset.id));
+
+      // 1. Cari batasan paling ujung dari kumpulan potongan
+      idsToMerge.forEach(id => {
+        const item = cropResults.find(r => r.id === id);
+        if(item){
+          minX = Math.min(minX, item.sx0); minY = Math.min(minY, item.sy0);
+          maxX = Math.max(maxX, item.sx0 + item.w); maxY = Math.max(maxY, item.sy0 + item.h);
+        }
+      });
+
+      // 2. Hapus kartu HTML & Filter array
+      idsToMerge.forEach(id => {
+        const cb = document.querySelector(`.merge-check[data-id="${id}"]`);
+        if(cb) cb.closest('.card').remove();
+      });
+      cropResults = cropResults.filter(r => !idsToMerge.includes(r.id));
+
+      // 3. Render ulan potongan baru
+      const baseName = getBaseFileName();
+      const newIndex = cropResults.length > 0 ? Math.max(...cropResults.map(r => r.index)) + 1 : 1;
+      
+      setStatus("Menggabungkan item...");
+      await processCropItem(minX, minY, maxX - minX, maxY - minY, newIndex, baseName);
+      
+      els.resultCount.textContent = `${cropResults.length} bagian`;
+      els.mergeBtn.classList.add("hidden");
+      setStatus(`Berhasil digabung! Kini ada <strong>${cropResults.length}</strong> potongan.`);
+    });
+
     els.split.addEventListener("click", async () => {
       if(!sourceImage || !gridState) return;
-      clampLinePositions();
-      renderAll();
-
-      cropResults = [];
-      els.resultGrid.innerHTML = "";
-      els.resultHeader.classList.remove("hidden");
-      els.exportBox.classList.remove("hidden");
-      els.downloadZip.classList.add("hidden");
+      clampLinePositions(); renderAll();
+      cropResults = []; els.resultGrid.innerHTML = ""; globalIdCounter = 0;
+      els.resultHeader.classList.remove("hidden"); els.exportBox.classList.remove("hidden");
+      els.downloadZip.classList.add("hidden"); els.mergeBtn.classList.add("hidden");
       setStatus("Memotong gambar...");
 
-      const baseName = getBaseFileName();
-      let index = 0;
+      const baseName = getBaseFileName(); let index = 0;
 
       if (currentMode === "auto") {
-        if (!gridState.autoBoxes || gridState.autoBoxes.length === 0) {
-          setStatus("Tidak ada item yang terdeteksi. Pastikan gambar transparan.");
-          return;
-        }
+        if (!gridState.autoBoxes || gridState.autoBoxes.length === 0) return setStatus("Tidak ada item yang terdeteksi.");
         const pad = clamp(parseInt(els.pad.value || "0", 10), 0, 100);
         for (let i = 0; i < gridState.autoBoxes.length; i++) {
           const box = gridState.autoBoxes[i];
-          const sx0 = clamp(box.x - pad, 0, sourceW);
-          const sy0 = clamp(box.y - pad, 0, sourceH);
-          const sx1 = clamp(box.x + box.w + pad, 0, sourceW);
-          const sy1 = clamp(box.y + box.h + pad, 0, sourceH);
-          
-          const w = sx1 - sx0;
-          const h = sy1 - sy0;
-          if(w <= 0 || h <= 0) continue;
-          index++;
-          await processCropItem(sx0, sy0, w, h, index, baseName);
+          const sx0 = clamp(box.x - pad, 0, sourceW), sy0 = clamp(box.y - pad, 0, sourceH);
+          const sx1 = clamp(box.x + box.w + pad, 0, sourceW), sy1 = clamp(box.y + box.h + pad, 0, sourceH);
+          const w = sx1 - sx0, h = sy1 - sy0;
+          if(w > 0 && h > 0) { index++; await processCropItem(sx0, sy0, w, h, index, baseName); }
         }
       } else {
         const gap = gridState.gap;
         for(let r=0; r<gridState.rows; r++){
           for(let c=0; c<gridState.cols; c++){
-            const sx0 = clamp(Math.round(gridState.xs[c] + (c > 0 ? gap / 2 : 0)), 0, sourceW);
-            const sy0 = clamp(Math.round(gridState.ys[r] + (r > 0 ? gap / 2 : 0)), 0, sourceH);
-            const sx1 = clamp(Math.round(gridState.xs[c+1] - (c < gridState.cols - 1 ? gap / 2 : 0)), 0, sourceW);
-            const sy1 = clamp(Math.round(gridState.ys[r+1] - (r < gridState.rows - 1 ? gap / 2 : 0)), 0, sourceH);
-            const w = sx1 - sx0;
-            const h = sy1 - sy0;
-            if(w <= 0 || h <= 0) continue;
-            index++;
-            await processCropItem(sx0, sy0, w, h, index, baseName);
+            const sx0 = clamp(Math.round(gridState.xs[c] + (c > 0 ? gap/2 : 0)), 0, sourceW);
+            const sy0 = clamp(Math.round(gridState.ys[r] + (r > 0 ? gap/2 : 0)), 0, sourceH);
+            const sx1 = clamp(Math.round(gridState.xs[c+1] - (c < gridState.cols-1 ? gap/2 : 0)), 0, sourceW);
+            const sy1 = clamp(Math.round(gridState.ys[r+1] - (r < gridState.rows-1 ? gap/2 : 0)), 0, sourceH);
+            const w = sx1 - sx0, h = sy1 - sy0;
+            if(w > 0 && h > 0) { index++; await processCropItem(sx0, sy0, w, h, index, baseName); }
           }
         }
       }
-
       els.resultCount.textContent = `${cropResults.length} bagian`;
-      if(cropResults.length){
-        els.downloadZip.classList.remove("hidden");
-        setStatus(`Selesai. Ada <strong>${cropResults.length}</strong> potongan.`);
-      }else{
-        setStatus("Tidak ada area yang bisa dipotong.");
-      }
+      if(cropResults.length){ els.downloadZip.classList.remove("hidden"); setStatus(`Selesai memotong.`); }
     });
 
     els.downloadZip.addEventListener("click", async () => {
       if(!cropResults.length) return;
-      if(typeof JSZip === "undefined"){
-        setStatus("JSZip belum termuat. Pastikan ada koneksi internet.");
-        return;
-      }
+      if(typeof JSZip === "undefined") return setStatus("JSZip belum termuat. Pastikan ada internet.");
 
-      const baseName = getBaseFileName();
       setStatus("Menyiapkan ZIP...");
-
       try{
         const zip = new JSZip();
+        const baseName = getBaseFileName();
         const folder = zip.folder(`${baseName}-parts`);
         const nameCount = {};
 
-        // Loop array dan baca input text terbaru untuk menyusun ZIP
-        cropResults.forEach((item, i) => {
-          const inputEl = document.getElementById(`name-input-${i}`);
-          const rawName = inputEl ? inputEl.value : item.defaultFilename;
-          const safeName = getSafeFilename(rawName, item.defaultFilename);
-
-          // Pencegah bentrok / duplikasi nama file
+        // Pengambilan data lebih aman, merujuk nilai yang tersimpan di objek, bukan ID HTML
+        cropResults.forEach((item) => {
+          const safeName = getSafeFilename(item.currentName, item.defaultFilename);
           let finalName = safeName;
           if (nameCount[finalName]) {
             const parts = finalName.split('.');
-            const ext = parts.pop();
-            finalName = `${parts.join('.')}_${nameCount[safeName]}.${ext}`;
+            finalName = `${parts.join('.')}_${nameCount[safeName]}.${parts.pop()}`;
             nameCount[safeName]++;
           } else {
             nameCount[safeName] = 1;
           }
-
           folder.file(finalName, item.blob);
         });
 
         const blob = await zip.generateAsync({ type:"blob" });
         triggerDownload(blob, `${baseName}-parts.zip`);
         setStatus(`ZIP siap diunduh berisi <strong>${cropResults.length}</strong> gambar.`);
-      }catch(err){
-        console.error(err);
-        setStatus("Gagal membuat ZIP.");
-      }
+      }catch(err){ console.error(err); setStatus("Gagal membuat ZIP."); }
     });
 
-    // --- LOGIC UNTUK DRAG GRID MANUAL ---
-    let draggingGrid = false;
-    let activeHandle = null;
-    let dragStart = null;
-    let startXs = null;
-    let startYs = null;
-
+    // Event logika pointer grid ...
+    let draggingGrid = false, activeHandle = null, dragStart = null, startXs = null, startYs = null;
     function getPointerInCanvas(evt){
       const rect = els.gridCanvas.getBoundingClientRect();
-      const x = (evt.clientX - rect.left) * (els.gridCanvas.width / rect.width);
-      const y = (evt.clientY - rect.top) * (els.gridCanvas.height / rect.height);
-      return { x, y };
+      return { x: (evt.clientX - rect.left) * (els.gridCanvas.width / rect.width), y: (evt.clientY - rect.top) * (els.gridCanvas.height / rect.height) };
     }
-
-    function findNearestHandle(px, py){
-      if(!gridState || currentMode !== "grid") return null;
-      const hitRadius = 18;
-      let best = null;
-      let bestDist = Infinity;
-      for(let i=0; i<gridState.xs.length; i++){
-        for(let j=0; j<gridState.ys.length; j++){
-          const d = Math.hypot(px - gridState.xs[i]*previewScale, py - gridState.ys[j]*previewScale);
-          if(d <= hitRadius && d < bestDist){
-            bestDist = d;
-            best = { i, j };
-          }
-        }
-      }
-      return best;
-    }
-
-    function isInsideInnerGrid(px, py){
-      if(!gridState || currentMode !== "grid") return false;
-      const left = Math.min(...gridState.xs) * previewScale;
-      const right = Math.max(...gridState.xs) * previewScale;
-      const top = Math.min(...gridState.ys) * previewScale;
-      const bottom = Math.max(...gridState.ys) * previewScale;
-      return px >= left && px <= right && py >= top && py <= bottom;
-    }
-
+    
     els.gridCanvas.addEventListener("pointerdown", (evt) => {
       if(!sourceImage || !gridState || currentMode !== "grid") return;
       const p = getPointerInCanvas(evt);
-      const hit = findNearestHandle(p.x, p.y);
-
-      if(hit){
-        activeHandle = hit;
-        gridState.activeHandle = hit;
-        draggingGrid = false;
-        els.gridCanvas.setPointerCapture(evt.pointerId);
-        dragStart = { x: p.x, y: p.y };
-        startXs = gridState.xs.slice();
-        startYs = gridState.ys.slice();
-        renderAll();
-        return;
+      let hit = null, bestDist = Infinity;
+      for(let i=0; i<gridState.xs.length; i++) for(let j=0; j<gridState.ys.length; j++){
+        const d = Math.hypot(p.x - gridState.xs[i]*previewScale, p.y - gridState.ys[j]*previewScale);
+        if(d <= 18 && d < bestDist){ bestDist = d; hit = {i,j}; }
       }
-      if(isInsideInnerGrid(p.x, p.y)){
-        draggingGrid = true;
-        activeHandle = null;
-        gridState.activeHandle = null;
-        els.gridCanvas.setPointerCapture(evt.pointerId);
-        dragStart = { x: p.x, y: p.y };
-        startXs = gridState.xs.slice();
-        startYs = gridState.ys.slice();
-        renderAll();
+      if(hit){
+        activeHandle = hit; gridState.activeHandle = hit; draggingGrid = false;
+        els.gridCanvas.setPointerCapture(evt.pointerId); dragStart = p; startXs = gridState.xs.slice(); startYs = gridState.ys.slice(); renderAll(); return;
+      }
+      const isInside = p.x >= Math.min(...gridState.xs)*previewScale && p.x <= Math.max(...gridState.xs)*previewScale && p.y >= Math.min(...gridState.ys)*previewScale && p.y <= Math.max(...gridState.ys)*previewScale;
+      if(isInside){
+        draggingGrid = true; activeHandle = null; gridState.activeHandle = null;
+        els.gridCanvas.setPointerCapture(evt.pointerId); dragStart = p; startXs = gridState.xs.slice(); startYs = gridState.ys.slice(); renderAll();
       }
     });
 
     els.gridCanvas.addEventListener("pointermove", (evt) => {
-      if(!sourceImage || !gridState || !dragStart || currentMode !== "grid") return;
-      const p = getPointerInCanvas(evt);
-      const dx = Math.round((p.x - dragStart.x) / previewScale);
-      const dy = Math.round((p.y - dragStart.y) / previewScale);
-
+      if(!dragStart || currentMode !== "grid") return;
+      const p = getPointerInCanvas(evt), dx = Math.round((p.x - dragStart.x)/previewScale), dy = Math.round((p.y - dragStart.y)/previewScale);
       if(activeHandle){
-        const { i, j } = activeHandle;
-        gridState.xs = startXs.slice();
-        gridState.ys = startYs.slice();
-        gridState.xs[i] = startXs[i] + dx;
-        gridState.ys[j] = startYs[j] + dy;
-        clampLinePositions();
-        gridState.activeHandle = activeHandle;
-        renderAll();
-        return;
+        gridState.xs = startXs.slice(); gridState.ys = startYs.slice();
+        gridState.xs[activeHandle.i] += dx; gridState.ys[activeHandle.j] += dy;
+        clampLinePositions(); renderAll(); return;
       }
       if(draggingGrid){
-        const newXs = startXs.map(v => v + dx);
-        const newYs = startYs.map(v => v + dy);
-        const minX = Math.min(...newXs);
-        const maxX = Math.max(...newXs);
-        const minY = Math.min(...newYs);
-        const maxY = Math.max(...newYs);
-        let shiftX = 0; let shiftY = 0;
-        if(minX < 0) shiftX = -minX;
-        if(maxX + shiftX > sourceW) shiftX += sourceW - (maxX + shiftX);
-        if(minY < 0) shiftY = -minY;
-        if(maxY + shiftY > sourceH) shiftY += sourceH - (maxY + shiftY);
-        gridState.xs = newXs.map(v => v + shiftX);
-        gridState.ys = newYs.map(v => v + shiftY);
-        clampLinePositions();
-        gridState.activeHandle = null;
-        renderAll();
+        const newXs = startXs.map(v => v + dx), newYs = startYs.map(v => v + dy);
+        let shiftX = Math.min(...newXs) < 0 ? -Math.min(...newXs) : (Math.max(...newXs) > sourceW ? sourceW - Math.max(...newXs) : 0);
+        let shiftY = Math.min(...newYs) < 0 ? -Math.min(...newYs) : (Math.max(...newYs) > sourceH ? sourceH - Math.max(...newYs) : 0);
+        gridState.xs = newXs.map(v => v + shiftX); gridState.ys = newYs.map(v => v + shiftY);
+        clampLinePositions(); renderAll();
       }
     });
 
-    function endDrag(){
-      draggingGrid = false; activeHandle = null; dragStart = null; startXs = null; startYs = null;
-      if(gridState && currentMode === "grid"){
-        gridState.activeHandle = null;
-        renderAll();
-      }
-    }
-
-    els.gridCanvas.addEventListener("pointerup", endDrag);
-    els.gridCanvas.addEventListener("pointercancel", endDrag);
-    els.gridCanvas.addEventListener("pointerleave", endDrag);
-
-    window.addEventListener("resize", () => {
-      if(sourceImage){ syncCanvasSize(); renderAll(); }
-    });
-
-    setStatus("Belum ada gambar dimuat.");
+    function endDrag(){ draggingGrid = false; activeHandle = null; dragStart = null; if(gridState){ gridState.activeHandle = null; renderAll(); } }
+    ["pointerup","pointercancel","pointerleave"].forEach(e => els.gridCanvas.addEventListener(e, endDrag));
+    window.addEventListener("resize", () => { if(sourceImage){ syncCanvasSize(); renderAll(); } });
   </script>
 </body>
 </html>
