@@ -66,7 +66,7 @@
             padding: 10px;
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            overflow: auto; /* Memungkinkan scroll jika gambar sangat besar */
+            overflow: auto;
             display: flex;
             justify-content: center;
         }
@@ -79,13 +79,12 @@
 </head>
 <body>
 
-    <h2>Aplikasi Penggabung Grid Foto</h2>
+    <h2>Aplikasi Penggabung Grid Foto (Kualitas Tinggi)</h2>
 
     <div class="controls">
         <input type="file" id="fileInput" multiple accept="image/*" title="Pilih beberapa foto sekaligus">
         
-        <div id="infoPanel" class="info-panel" style="display: none;">
-            </div>
+        <div id="infoPanel" class="info-panel" style="display: none;"></div>
 
         <button id="downloadBtn" class="btn" disabled>Unduh Hasil Gambar</button>
     </div>
@@ -101,7 +100,6 @@
         const infoPanel = document.getElementById('infoPanel');
         const downloadBtn = document.getElementById('downloadBtn');
 
-        // Fungsi untuk membaca file gambar sebagai Promise
         function loadImage(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -115,24 +113,27 @@
             });
         }
 
-        // Listener saat user memilih file
         fileInput.addEventListener('change', async (e) => {
             const files = e.target.files;
             if (files.length === 0) return;
 
             infoPanel.style.display = 'block';
-            infoPanel.innerHTML = `Memproses ${files.length} gambar...`;
+            infoPanel.innerHTML = `Memproses ${files.length} gambar... (Ini mungkin memakan waktu untuk gambar beresolusi tinggi)`;
             downloadBtn.disabled = true;
 
             const images = [];
             let totalRatio = 0;
+            let resolusiTertinggi = 0; // Variabel baru untuk mencari dimensi asli terbesar
 
-            // 1. Memuat semua gambar dan menghitung rasio total
             for (let file of files) {
                 try {
                     const img = await loadImage(file);
                     images.push(img);
                     totalRatio += (img.width / img.height);
+                    
+                    // Cek sisi terpanjang gambar untuk mempertahankan kualitas asli
+                    if (img.width > resolusiTertinggi) resolusiTertinggi = img.width;
+                    if (img.height > resolusiTertinggi) resolusiTertinggi = img.height;
                 } catch (err) {
                     console.error("Gagal memuat gambar:", file.name);
                 }
@@ -144,41 +145,34 @@
                 return;
             }
 
-            // 2. Menghitung susunan grid yang optimal
-            // Akar kuadrat digunakan untuk mendapatkan bentuk grid yang paling mendekati persegi
             const kolom = Math.ceil(Math.sqrt(jumlahGambar));
             const baris = Math.ceil(jumlahGambar / kolom);
 
-            // 3. Menghitung rasio rata-rata untuk menentukan dimensi setiap kotak (cell)
             const rasioRataRata = totalRatio / jumlahGambar;
-            const ukuranDasar = 800; // Resolusi dasar standar
+            
+            // PERUBAHAN UTAMA: Menggunakan resolusi tertinggi dari gambar asli, bukan limit 800px
+            const ukuranDasar = resolusiTertinggi; 
             let lebarSel = ukuranDasar;
             let tinggiSel = ukuranDasar;
 
             if (rasioRataRata > 1) {
-                // Gambar cenderung landscape
                 tinggiSel = ukuranDasar / rasioRataRata;
             } else {
-                // Gambar cenderung portrait
                 lebarSel = ukuranDasar * rasioRataRata;
             }
 
-            // 4. Mengatur ukuran kanvas berdasarkan susunan grid dan ukuran sel
             canvas.width = kolom * lebarSel;
             canvas.height = baris * tinggiSel;
 
-            // Beri background putih agar area grid yang kosong (jika jumlah gambar ganjil) tidak transparan
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Update panel informasi
             infoPanel.innerHTML = `
                 <strong>Jumlah File:</strong> ${jumlahGambar} | 
                 <strong>Grid:</strong> ${kolom} Kolom x ${baris} Baris | 
-                <strong>Rasio Rata-rata:</strong> ${rasioRataRata.toFixed(2)}
+                <strong>Resolusi Output:</strong> ${Math.round(canvas.width)} x ${Math.round(canvas.height)} px
             `;
 
-            // 5. Menggambar setiap gambar ke dalam kanvas (dengan efek object-fit: cover)
             images.forEach((img, index) => {
                 const posisiKolom = index % kolom;
                 const posisiBaris = Math.floor(index / kolom);
@@ -191,35 +185,29 @@
 
                 let sx, sy, sw, sh;
 
-                // Logika pemotongan (cropping) agar gambar memenuhi seluruh kotak grid tanpa mengubah bentuk/distorsi
                 if (rasioGambar > rasioSel) {
-                    // Gambar lebih lebar dari kotak grid -> Potong sisi kiri dan kanan
                     sh = img.height;
                     sw = img.height * rasioSel;
                     sx = (img.width - sw) / 2;
                     sy = 0;
                 } else {
-                    // Gambar lebih tinggi dari kotak grid -> Potong sisi atas dan bawah
                     sw = img.width;
                     sh = img.width / rasioSel;
                     sx = 0;
                     sy = (img.height - sh) / 2;
                 }
 
-                // Gambar ke kanvas
                 ctx.drawImage(img, sx, sy, sw, sh, dx, dy, lebarSel, tinggiSel);
             });
 
-            // Aktifkan tombol unduh setelah selesai menggambar
             downloadBtn.disabled = false;
         });
 
-        // Logika untuk mengunduh gambar hasil dari kanvas
         downloadBtn.addEventListener('click', () => {
             const link = document.createElement('a');
-            link.download = 'hasil-grid-foto.jpg';
-            // Mengubah format ke JPEG dengan kualitas 90% untuk ukuran file yang optimal
-            link.href = canvas.toDataURL('image/jpeg', 0.9);
+            link.download = 'hasil-grid-foto-highres.jpg';
+            // PERUBAHAN: Kualitas diubah dari 0.9 menjadi 1.0 (kualitas maksimum)
+            link.href = canvas.toDataURL('image/jpeg', 1.0); 
             link.click();
         });
     </script>
