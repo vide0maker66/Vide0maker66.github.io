@@ -397,7 +397,7 @@
             <div class="row">
               <label for="mode">Metode Potong</label>
               <select id="mode">
-                <option value="auto" selected>Auto Deteksi (Transparan)</option>
+                <option value="auto" selected>Auto Deteksi (Smart Crop)</option>
                 <option value="grid">Grid (Manual)</option>
               </select>
             </div>
@@ -418,6 +418,14 @@
             </div>
 
             <div id="autoSettings">
+              <div class="row">
+                <label for="bgType">Abaikan Background</label>
+                <select id="bgType">
+                  <option value="transparent" selected>Transparan</option>
+                  <option value="white">Putih Solid</option>
+                  <option value="black">Hitam Solid</option>
+                </select>
+              </div>
               <div class="row">
                 <label for="pad">Padding ekstra tepi (px)</label>
                 <input id="pad" type="number" min="0" max="100" step="1" value="0" />
@@ -481,6 +489,7 @@
       mode: $("mode"),
       gridSettings: $("gridSettings"),
       autoSettings: $("autoSettings"),
+      bgType: $("bgType"),
       cols: $("cols"),
       rows: $("rows"),
       gap: $("gap"),
@@ -539,12 +548,34 @@
       const qy = new Int32Array(maxQueue);
       const dirs = [[1,0], [-1,0], [0,1], [0,-1], [1,1], [-1,-1], [1,-1], [-1,1]];
 
+      const bgType = els.bgType.value;
+
+      // Cek apakah pixel tersebut merupakan bagian dari pulau gambar (bukan background)
+      const isForeground = (idx) => {
+        const r = data[idx * 4];
+        const g = data[idx * 4 + 1];
+        const b = data[idx * 4 + 2];
+        const a = data[idx * 4 + 3];
+
+        if (a <= 10) return false; // Selalu abaikan transparan ekstrem
+        
+        if (bgType === "white") {
+          // Jika mayoritas putih terang (240-255), anggap sebagai background
+          if (r > 240 && g > 240 && b > 240) return false;
+        } else if (bgType === "black") {
+          // Jika mayoritas gelap/hitam (0-15), anggap sebagai background
+          if (r < 15 && g < 15 && b < 15) return false;
+        }
+
+        return true;
+      };
+
       for (let y = 0; y < sourceH; y++) {
         for (let x = 0; x < sourceW; x++) {
           const startIdx = y * sourceW + x;
           if (visited[startIdx] === 0) {
             visited[startIdx] = 1;
-            if (data[startIdx * 4 + 3] > 10) { 
+            if (isForeground(startIdx)) { 
               let head = 0, tail = 0;
               qx[tail] = x; qy[tail] = y; tail++;
               let minX = x, maxX = x, minY = y, maxY = y;
@@ -563,7 +594,7 @@
                     const nIdx = ny * sourceW + nx;
                     if (visited[nIdx] === 0) {
                       visited[nIdx] = 1;
-                      if (data[nIdx * 4 + 3] > 10) {
+                      if (isForeground(nIdx)) {
                         qx[tail] = nx; qy[tail] = ny; tail++;
                       }
                     }
@@ -605,7 +636,7 @@
 
     function runAutoDetect() {
       if(!sourceImage) return;
-      setStatus("Menganalisis item transparan...");
+      setStatus("Menganalisis item...");
       setTimeout(() => {
         const boxes = detectItems();
         if(!gridState) buildInitialGrid();
@@ -726,6 +757,11 @@
       }
     });
 
+    // Jalankan ulang auto-detect ketika tipe background diubah
+    els.bgType.addEventListener("change", () => {
+      if(currentMode === "auto") runAutoDetect();
+    });
+
     els.pad.addEventListener("change", () => { if(currentMode === "auto") renderAll(); });
     ["cols", "rows", "gap"].forEach(id => {
       els[id].addEventListener("change", () => {
@@ -741,7 +777,6 @@
       setTimeout(() => URL.revokeObjectURL(url), 2000);
     }
 
-    // Pembuatan setiap item potongan
     async function processCropItem(sx0, sy0, w, h, index, baseName) {
       const canvas = document.createElement("canvas");
       canvas.width = w; canvas.height = h;
@@ -764,7 +799,6 @@
       const meta = document.createElement("div"); meta.className = "cardMeta";
       meta.innerHTML = `<span><strong>#${index}</strong></span><span>${w}×${h}</span>`;
 
-      // Checkbox untuk fitur penggabungan (Merge)
       const lbl = document.createElement("label");
       lbl.className = "checkbox-row";
       const chk = document.createElement("input");
@@ -775,7 +809,6 @@
       const nameInput = document.createElement("input");
       nameInput.type = "text"; nameInput.className = "partNameInput";
       nameInput.value = defaultFilename;
-      // Langsung simpan nama baru ke objek untuk menghindari kesalahan saat ekstrak ZIP
       nameInput.addEventListener("input", (e) => resultObj.currentName = e.target.value);
 
       const btnRow = document.createElement("div"); btnRow.className = "btnrow";
@@ -787,7 +820,6 @@
       els.resultGrid.appendChild(card);
     }
 
-    // Fitur Gabung Item Terpilih
     els.resultGrid.addEventListener("change", (e) => {
       if (e.target.classList.contains("merge-check")) {
         const checked = document.querySelectorAll(".merge-check:checked");
@@ -802,7 +834,6 @@
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       const idsToMerge = Array.from(checkboxes).map(cb => parseInt(cb.dataset.id));
 
-      // 1. Cari batasan paling ujung dari kumpulan potongan
       idsToMerge.forEach(id => {
         const item = cropResults.find(r => r.id === id);
         if(item){
@@ -811,14 +842,12 @@
         }
       });
 
-      // 2. Hapus kartu HTML & Filter array
       idsToMerge.forEach(id => {
         const cb = document.querySelector(`.merge-check[data-id="${id}"]`);
         if(cb) cb.closest('.card').remove();
       });
       cropResults = cropResults.filter(r => !idsToMerge.includes(r.id));
 
-      // 3. Render ulan potongan baru
       const baseName = getBaseFileName();
       const newIndex = cropResults.length > 0 ? Math.max(...cropResults.map(r => r.index)) + 1 : 1;
       
@@ -878,7 +907,6 @@
         const folder = zip.folder(`${baseName}-parts`);
         const nameCount = {};
 
-        // Pengambilan data lebih aman, merujuk nilai yang tersimpan di objek, bukan ID HTML
         cropResults.forEach((item) => {
           const safeName = getSafeFilename(item.currentName, item.defaultFilename);
           let finalName = safeName;
@@ -898,7 +926,6 @@
       }catch(err){ console.error(err); setStatus("Gagal membuat ZIP."); }
     });
 
-    // Event logika pointer grid ...
     let draggingGrid = false, activeHandle = null, dragStart = null, startXs = null, startYs = null;
     function getPointerInCanvas(evt){
       const rect = els.gridCanvas.getBoundingClientRect();
