@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aplikasi Penggabung Grid Foto</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h2 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        .controls {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+        input[type="file"] {
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 4px;
+            width: 100%;
+            max-width: 400px;
+        }
+        .info-panel {
+            background: #eaf2f8;
+            padding: 10px 15px;
+            border-radius: 4px;
+            width: 100%;
+            text-align: center;
+            font-size: 14px;
+            color: #2980b9;
+        }
+        .btn {
+            padding: 10px 20px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background-color: #219653;
+        }
+        .btn:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        #canvas-container {
+            background: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: auto; /* Memungkinkan scroll jika gambar sangat besar */
+            display: flex;
+            justify-content: center;
+        }
+        canvas {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Aplikasi Penggabung Grid Foto</h2>
+
+    <div class="controls">
+        <input type="file" id="fileInput" multiple accept="image/*" title="Pilih beberapa foto sekaligus">
+        
+        <div id="infoPanel" class="info-panel" style="display: none;">
+            </div>
+
+        <button id="downloadBtn" class="btn" disabled>Unduh Hasil Gambar</button>
+    </div>
+
+    <div id="canvas-container">
+        <canvas id="resultCanvas"></canvas>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const canvas = document.getElementById('resultCanvas');
+        const ctx = canvas.getContext('2d');
+        const infoPanel = document.getElementById('infoPanel');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        // Fungsi untuk membaca file gambar sebagai Promise
+        function loadImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => resolve(img);
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Listener saat user memilih file
+        fileInput.addEventListener('change', async (e) => {
+            const files = e.target.files;
+            if (files.length === 0) return;
+
+            infoPanel.style.display = 'block';
+            infoPanel.innerHTML = `Memproses ${files.length} gambar...`;
+            downloadBtn.disabled = true;
+
+            const images = [];
+            let totalRatio = 0;
+
+            // 1. Memuat semua gambar dan menghitung rasio total
+            for (let file of files) {
+                try {
+                    const img = await loadImage(file);
+                    images.push(img);
+                    totalRatio += (img.width / img.height);
+                } catch (err) {
+                    console.error("Gagal memuat gambar:", file.name);
+                }
+            }
+
+            const jumlahGambar = images.length;
+            if (jumlahGambar === 0) {
+                infoPanel.innerHTML = "Tidak ada gambar valid yang berhasil dimuat.";
+                return;
+            }
+
+            // 2. Menghitung susunan grid yang optimal
+            // Akar kuadrat digunakan untuk mendapatkan bentuk grid yang paling mendekati persegi
+            const kolom = Math.ceil(Math.sqrt(jumlahGambar));
+            const baris = Math.ceil(jumlahGambar / kolom);
+
+            // 3. Menghitung rasio rata-rata untuk menentukan dimensi setiap kotak (cell)
+            const rasioRataRata = totalRatio / jumlahGambar;
+            const ukuranDasar = 800; // Resolusi dasar standar
+            let lebarSel = ukuranDasar;
+            let tinggiSel = ukuranDasar;
+
+            if (rasioRataRata > 1) {
+                // Gambar cenderung landscape
+                tinggiSel = ukuranDasar / rasioRataRata;
+            } else {
+                // Gambar cenderung portrait
+                lebarSel = ukuranDasar * rasioRataRata;
+            }
+
+            // 4. Mengatur ukuran kanvas berdasarkan susunan grid dan ukuran sel
+            canvas.width = kolom * lebarSel;
+            canvas.height = baris * tinggiSel;
+
+            // Beri background putih agar area grid yang kosong (jika jumlah gambar ganjil) tidak transparan
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Update panel informasi
+            infoPanel.innerHTML = `
+                <strong>Jumlah File:</strong> ${jumlahGambar} | 
+                <strong>Grid:</strong> ${kolom} Kolom x ${baris} Baris | 
+                <strong>Rasio Rata-rata:</strong> ${rasioRataRata.toFixed(2)}
+            `;
+
+            // 5. Menggambar setiap gambar ke dalam kanvas (dengan efek object-fit: cover)
+            images.forEach((img, index) => {
+                const posisiKolom = index % kolom;
+                const posisiBaris = Math.floor(index / kolom);
+
+                const dx = posisiKolom * lebarSel;
+                const dy = posisiBaris * tinggiSel;
+
+                const rasioGambar = img.width / img.height;
+                const rasioSel = lebarSel / tinggiSel;
+
+                let sx, sy, sw, sh;
+
+                // Logika pemotongan (cropping) agar gambar memenuhi seluruh kotak grid tanpa mengubah bentuk/distorsi
+                if (rasioGambar > rasioSel) {
+                    // Gambar lebih lebar dari kotak grid -> Potong sisi kiri dan kanan
+                    sh = img.height;
+                    sw = img.height * rasioSel;
+                    sx = (img.width - sw) / 2;
+                    sy = 0;
+                } else {
+                    // Gambar lebih tinggi dari kotak grid -> Potong sisi atas dan bawah
+                    sw = img.width;
+                    sh = img.width / rasioSel;
+                    sx = 0;
+                    sy = (img.height - sh) / 2;
+                }
+
+                // Gambar ke kanvas
+                ctx.drawImage(img, sx, sy, sw, sh, dx, dy, lebarSel, tinggiSel);
+            });
+
+            // Aktifkan tombol unduh setelah selesai menggambar
+            downloadBtn.disabled = false;
+        });
+
+        // Logika untuk mengunduh gambar hasil dari kanvas
+        downloadBtn.addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'hasil-grid-foto.jpg';
+            // Mengubah format ke JPEG dengan kualitas 90% untuk ukuran file yang optimal
+            link.href = canvas.toDataURL('image/jpeg', 0.9);
+            link.click();
+        });
+    </script>
+</body>
+</html>
