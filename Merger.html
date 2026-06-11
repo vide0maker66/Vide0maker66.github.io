@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aplikasi Penggabung Grid Foto</title>
+    <title>Aplikasi Penggabung Grid Foto (Transparan)</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -69,24 +69,32 @@
             overflow: auto;
             display: flex;
             justify-content: center;
+            /* Tambahan: Memberikan efek pola kotak-kotak (checkerboard) untuk memperlihatkan transparansi di preview */
+            background-image: linear-gradient(45deg, #ccc 25%, transparent 25%), 
+                              linear-gradient(-45deg, #ccc 25%, transparent 25%), 
+                              linear-gradient(45deg, transparent 75%, #ccc 75%), 
+                              linear-gradient(-45deg, transparent 75%, #ccc 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
         }
         canvas {
             max-width: 100%;
             height: auto;
             border: 1px solid #ddd;
+            background: transparent; /* Memastikan canvas terlihat transparan di browser */
         }
     </style>
 </head>
 <body>
 
-    <h2>Aplikasi Penggabung Grid Foto (Kualitas Tinggi)</h2>
+    <h2>Aplikasi Penggabung Grid Foto (PNG Transparan)</h2>
 
     <div class="controls">
         <input type="file" id="fileInput" multiple accept="image/*" title="Pilih beberapa foto sekaligus">
         
         <div id="infoPanel" class="info-panel" style="display: none;"></div>
 
-        <button id="downloadBtn" class="btn" disabled>Unduh Hasil Gambar</button>
+        <button id="downloadBtn" class="btn" disabled>Unduh Hasil Gambar (PNG)</button>
     </div>
 
     <div id="canvas-container">
@@ -123,7 +131,7 @@
 
             const images = [];
             let totalRatio = 0;
-            let resolusiTertinggi = 0; // Variabel baru untuk mencari dimensi asli terbesar
+            let resolusiTertinggi = 0; 
 
             for (let file of files) {
                 try {
@@ -131,7 +139,6 @@
                     images.push(img);
                     totalRatio += (img.width / img.height);
                     
-                    // Cek sisi terpanjang gambar untuk mempertahankan kualitas asli
                     if (img.width > resolusiTertinggi) resolusiTertinggi = img.width;
                     if (img.height > resolusiTertinggi) resolusiTertinggi = img.height;
                 } catch (err) {
@@ -150,7 +157,6 @@
 
             const rasioRataRata = totalRatio / jumlahGambar;
             
-            // PERUBAHAN UTAMA: Menggunakan resolusi tertinggi dari gambar asli, bukan limit 800px
             const ukuranDasar = resolusiTertinggi; 
             let lebarSel = ukuranDasar;
             let tinggiSel = ukuranDasar;
@@ -164,8 +170,8 @@
             canvas.width = kolom * lebarSel;
             canvas.height = baris * tinggiSel;
 
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // PERUBAHAN 1: Kode fill background putih dihapus agar canvas tetap transparan
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Memastikan canvas bersih (transparan) sebelum menggambar ulang
 
             infoPanel.innerHTML = `
                 <strong>Jumlah File:</strong> ${jumlahGambar} | 
@@ -205,9 +211,10 @@
 
         downloadBtn.addEventListener('click', () => {
             const link = document.createElement('a');
-            link.download = 'hasil-grid-foto-highres.jpg';
-            // PERUBAHAN: Kualitas diubah dari 0.9 menjadi 1.0 (kualitas maksimum)
-            link.href = canvas.toDataURL('image/jpeg', 1.0); 
+            // PERUBAHAN 2: Ekstensi diubah menjadi .png
+            link.download = 'hasil-grid-foto-transparan.png';
+            // PERUBAHAN 3: Diekspor sebagai image/png (mendukung alpha/transparansi)
+            link.href = canvas.toDataURL('image/png'); 
             link.click();
         });
     </script>
