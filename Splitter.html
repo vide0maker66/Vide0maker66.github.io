@@ -757,7 +757,6 @@
       }
     });
 
-    // Jalankan ulang auto-detect ketika tipe background diubah
     els.bgType.addEventListener("change", () => {
       if(currentMode === "auto") runAutoDetect();
     });
@@ -780,8 +779,81 @@
     async function processCropItem(sx0, sy0, w, h, index, baseName) {
       const canvas = document.createElement("canvas");
       canvas.width = w; canvas.height = h;
-      canvas.getContext("2d").drawImage(sourceImage, sx0, sy0, w, h, 0, 0, w, h);
       
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(sourceImage, sx0, sy0, w, h, 0, 0, w, h);
+      
+      if (currentMode === "auto") {
+        const bgType = els.bgType.value;
+        const imgData = ctx.getImageData(0, 0, w, h);
+        const data = imgData.data;
+        const len = w * h;
+        
+        const labels = new Int32Array(len);
+        const labelCounts = {};
+        let currentLabel = 1;
+
+        const isForeground = (idx) => {
+          const r = data[idx * 4], g = data[idx * 4 + 1], b = data[idx * 4 + 2], a = data[idx * 4 + 3];
+          if (a <= 10) return false;
+          if (bgType === "white" && r > 240 && g > 240 && b > 240) return false;
+          if (bgType === "black" && r < 15 && g < 15 && b < 15) return false;
+          return true;
+        };
+
+        const qx = new Int32Array(len);
+        const qy = new Int32Array(len);
+        const dirs = [[1,0], [-1,0], [0,1], [0,-1], [1,1], [-1,-1], [1,-1], [-1,1]];
+
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const startIdx = y * w + x;
+            if (labels[startIdx] === 0 && isForeground(startIdx)) {
+              let head = 0, tail = 0;
+              qx[tail] = x; qy[tail] = y; tail++;
+              labels[startIdx] = currentLabel;
+              let count = 1;
+
+              while (head < tail) {
+                const cx = qx[head], cy = qy[head];
+                head++;
+                for (let i = 0; i < 8; i++) {
+                  const nx = cx + dirs[i][0], ny = cy + dirs[i][1];
+                  if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+                    const nIdx = ny * w + nx;
+                    if (labels[nIdx] === 0 && isForeground(nIdx)) {
+                      labels[nIdx] = currentLabel;
+                      qx[tail] = nx; qy[tail] = ny; tail++;
+                      count++;
+                    }
+                  }
+                }
+              }
+              labelCounts[currentLabel] = count;
+              currentLabel++;
+            }
+          }
+        }
+
+        let maxLabel = -1;
+        let maxCount = 0;
+        for (const lbl in labelCounts) {
+          if (labelCounts[lbl] > maxCount) {
+            maxCount = labelCounts[lbl];
+            maxLabel = parseInt(lbl);
+          }
+        }
+
+        if (maxLabel !== -1) {
+          for (let i = 0; i < len; i++) {
+            if (labels[i] !== 0 && labels[i] !== maxLabel) {
+              data[i * 4 + 3] = 0; 
+            }
+          }
+          ctx.putImageData(imgData, 0, 0);
+        }
+      }
+
       const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
       const defaultFilename = `${baseName}-part-${String(index).padStart(2, "0")}.png`;
       const id = globalIdCounter++;
