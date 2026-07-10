@@ -3,27 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Base64 Data Bender v4.0 - Full Workspace</title>
+    <title>Base64 Data Bender v5.0 - Glitch Engines</title>
     <style>
         :root {
-            --bg-color: #090d16;
-            --panel-bg: #111827;
-            --panel-border: #1f2937;
-            --accent-blue: #3b82f6;
-            --accent-green: #10b981;
-            --accent-purple: #8b5cf6;
-            --text-main: #f3f4f6;
-            --text-muted: #9ca3af;
+            --bg-color: #050505;
+            --panel-bg: #111111;
+            --panel-border: #333333;
+            --accent-blue: #00f3ff;
+            --accent-green: #39ff14;
+            --accent-red: #ff003c;
+            --text-main: #e0e0e0;
+            --text-muted: #888888;
         }
 
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             background-color: var(--bg-color);
             color: var(--text-main);
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            font-family: 'Inter', system-ui, sans-serif;
             margin: 0;
             padding: 0;
             min-height: 100vh;
@@ -31,10 +29,9 @@
             flex-direction: column;
         }
 
-        /* Header penuh tanpa sekat kotak */
         .app-header {
             background: var(--panel-bg);
-            border-bottom: 1px solid var(--panel-border);
+            border-bottom: 1px solid var(--accent-red);
             padding: 15px 25px;
             display: flex;
             justify-content: space-between;
@@ -44,23 +41,11 @@
         .app-header h1 {
             margin: 0;
             font-size: 1.3rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-            background: linear-gradient(to right, #3b82f6, #10b981);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--accent-red);
+            text-transform: uppercase;
+            letter-spacing: 2px;
         }
 
-        .version-tag {
-            font-size: 0.75rem;
-            background: #1e293b;
-            padding: 4px 8px;
-            border-radius: 6px;
-            color: var(--text-muted);
-            border: 1px solid #334155;
-        }
-
-        /* Workspace melebar penuh */
         .workspace-container {
             display: flex;
             flex-direction: column;
@@ -69,7 +54,6 @@
             flex: 1;
         }
 
-        /* Grid Utama Dua Kolom */
         .grid-slots {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -77,126 +61,57 @@
             width: 100%;
         }
 
-        @media (max-width: 900px) {
-            .grid-slots {
-                grid-template-columns: 1fr;
-            }
-        }
+        @media (max-width: 900px) { .grid-slots { grid-template-columns: 1fr; } }
 
         .slot {
             background: var(--panel-bg);
             border: 1px solid var(--panel-border);
-            border-radius: 12px;
+            border-radius: 8px;
             padding: 20px;
             display: flex;
             flex-direction: column;
             gap: 15px;
         }
 
-        .slot-title {
-            font-weight: 600;
-            font-size: 1rem;
-            color: var(--text-main);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        /* Rampingkan Tombol Canvas Upload */
         .upload-canvas-wrapper {
             position: relative;
             cursor: pointer;
             width: 100%;
-            height: 42px; /* Diperkecil dari 70px agar lebih ramping */
-            border-radius: 8px;
+            height: 42px;
+            border-radius: 4px;
             overflow: hidden;
-            transition: transform 0.15s, filter 0.15s;
+            transition: filter 0.2s;
         }
 
-        .upload-canvas-wrapper:hover {
-            transform: translateY(-1px);
-            filter: brightness(1.1);
-        }
-
+        .upload-canvas-wrapper:hover { filter: brightness(1.2); }
         .upload-canvas-wrapper input[type="file"] {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            opacity: 0;
-            cursor: pointer;
-            z-index: 2;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 2;
         }
+        .upload-btn-canvas { width: 100%; height: 100%; display: block; }
 
-        .upload-btn-canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
+        label { font-size: 0.75rem; color: var(--accent-blue); text-transform: uppercase; margin-bottom: 4px; display: block; }
 
-        label {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            font-weight: 500;
-            display: block;
-            margin-bottom: 6px;
-        }
-
-        /* Textarea Code Area */
         textarea {
             width: 100%;
-            box-sizing: border-box;
-            background: #070a12;
+            background: #000;
             border: 1px solid var(--panel-border);
-            border-radius: 8px;
-            color: #34d399;
-            font-family: 'Fira Code', 'Courier New', monospace;
+            border-radius: 4px;
+            color: var(--text-muted);
+            font-family: monospace;
             font-size: 11px;
             padding: 10px;
             resize: vertical;
         }
-
-        textarea[readonly] {
-            color: #64748b;
-            background: rgba(0, 0, 0, 0.2);
-            cursor: not-allowed;
-        }
+        textarea.editable { color: var(--accent-green); }
 
         .header-area { height: 45px; }
-        .editable-area { height: 110px; }
+        .editable-area { height: 100px; }
 
-        /* Panel Deteksi & Analisis */
-        .analysis-panel {
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid #1f2937;
-            border-radius: 8px;
-            padding: 10px 12px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-        }
-
-        .stat-badge {
-            font-size: 0.75rem;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .stat-badge span {
-            font-family: monospace;
-            background: #1e293b;
-            padding: 2px 6px;
-            border-radius: 4px;
-            color: #f1f5f9;
-        }
-
-        /* Control Panel Tengah */
-        .control-panel {
-            background: var(--panel-bg);
+        /* Panel Mesin Glitch */
+        .glitch-engine-panel {
+            background: #0a0a0a;
             border: 1px solid var(--panel-border);
-            border-radius: 12px;
+            border-radius: 8px;
             padding: 20px;
             display: flex;
             flex-direction: column;
@@ -204,399 +119,265 @@
             gap: 15px;
         }
 
+        .engine-title {
+            color: var(--text-main);
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
         .control-group {
             display: flex;
-            gap: 12px;
+            gap: 15px;
             flex-wrap: wrap;
             justify-content: center;
         }
 
         .btn {
-            color: white;
-            border: none;
-            padding: 10px 24px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            border-radius: 8px;
+            background: #222;
+            color: var(--text-main);
+            border: 1px solid #444;
+            padding: 12px 20px;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-radius: 4px;
             cursor: pointer;
             transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 8px;
         }
 
-        .btn-swap {
-            background: var(--accent-blue);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        .btn:hover:not(:disabled) {
+            background: var(--accent-red);
+            border-color: var(--accent-red);
+            color: #fff;
+            box-shadow: 0 0 10px rgba(255,0,60,0.5);
         }
 
-        .btn-merge {
-            background: var(--accent-purple);
-            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
-        }
+        .btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-        .btn:hover {
-            transform: translateY(-1px);
-            filter: brightness(1.1);
-        }
-
-        .btn:disabled {
-            background: #374151;
-            box-shadow: none;
-            cursor: not-allowed;
-            opacity: 0.5;
-            transform: none;
-        }
-
-        /* Slider Penggabungan */
-        .slider-container {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            width: 100%;
-            max-width: 400px;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-        }
-
-        .slider-container input {
-            flex: 1;
-            accent-color: var(--accent-purple);
-        }
-
-        /* Preview Box */
         .image-container {
-            background-color: #05070c;
-            height: 220px;
+            background-color: #000;
+            height: 250px;
             display: flex;
             justify-content: center;
             align-items: center;
-            border-radius: 8px;
+            border-radius: 4px;
             border: 1px solid var(--panel-border);
             overflow: hidden;
-            position: relative;
         }
 
-        img {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-        }
-
-        .info-note {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            text-align: center;
-            line-height: 1.4;
-        }
+        img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        
+        .status-bar { font-size: 0.75rem; color: var(--accent-blue); text-align: center; }
     </style>
 </head>
 <body>
 
     <header class="app-header">
         <h1>Base64 Data Bender</h1>
-        <span class="version-tag">v4.0 Workspace Active</span>
+        <div style="color: var(--accent-blue); font-family: monospace;">v5.0_GLITCH_ENGINES</div>
     </header>
     
     <div class="workspace-container">
         
         <div class="grid-slots">
-            
             <div class="slot" id="slotA">
-                <div class="slot-title">
-                    <span style="color: var(--accent-blue);">●</span> Gambar A
-                </div>
-                
                 <div class="upload-canvas-wrapper">
                     <input type="file" id="uploadA" accept="image/*">
                     <canvas id="canvasBtnA" class="upload-btn-canvas"></canvas>
                 </div>
-
                 <div>
-                    <label>Header File (Dikunci)</label>
-                    <textarea id="headerA" class="header-area" readonly placeholder="Header Metadata A..."></textarea>
+                    <label>Header Metadata (Terkunci)</label>
+                    <textarea id="headerA" class="header-area" readonly></textarea>
                 </div>
-                
                 <div>
-                    <label>Data Piksel (Editable)</label>
-                    <textarea id="editableA" class="editable-area" placeholder="Data string piksel gambar A..."></textarea>
+                    <label>Data Piksel Target (A)</label>
+                    <textarea id="editableA" class="editable-area editable"></textarea>
                 </div>
-
-                <div class="analysis-panel">
-                    <div class="stat-badge">Karakter '/': <span id="countSlashA">0</span></div>
-                    <div class="stat-badge">Total Size: <span id="sizeA">0 Chars</span></div>
-                    <div class="stat-badge">End of File (EOF): <span id="eofA">-</span></div>
-                </div>
-
-                <div>
-                    <label>Pratinjau Gambar A</label>
-                    <div class="image-container">
-                        <img id="previewA" alt="Menunggu unggahan Gambar A...">
-                    </div>
-                </div>
+                <div class="image-container"><img id="previewA"></div>
             </div>
 
             <div class="slot" id="slotB">
-                <div class="slot-title">
-                    <span style="color: var(--accent-green);">●</span> Gambar B
-                </div>
-                
                 <div class="upload-canvas-wrapper">
                     <input type="file" id="uploadB" accept="image/*">
                     <canvas id="canvasBtnB" class="upload-btn-canvas"></canvas>
                 </div>
-
                 <div>
-                    <label>Header File (Dikunci)</label>
-                    <textarea id="headerB" class="header-area" readonly placeholder="Header Metadata B..."></textarea>
+                    <label>Header Metadata (Terkunci)</label>
+                    <textarea id="headerB" class="header-area" readonly></textarea>
                 </div>
-                
                 <div>
-                    <label>Data Piksel (Editable)</label>
-                    <textarea id="editableB" class="editable-area" placeholder="Data string piksel gambar B..."></textarea>
+                    <label>Data Piksel Target (B)</label>
+                    <textarea id="editableB" class="editable-area editable"></textarea>
                 </div>
-
-                <div class="analysis-panel">
-                    <div class="stat-badge">Karakter '/': <span id="countSlashB">0</span></div>
-                    <div class="stat-badge">Total Size: <span id="sizeB">0 Chars</span></div>
-                    <div class="stat-badge">End of File (EOF): <span id="eofB">-</span></div>
-                </div>
-
-                <div>
-                    <label>Pratinjau Gambar B</label>
-                    <div class="image-container">
-                        <img id="previewB" alt="Menunggu unggahan Gambar B...">
-                    </div>
-                </div>
+                <div class="image-container"><img id="previewB"></div>
             </div>
-
         </div>
 
-        <div class="control-panel">
-            <div class="slider-container">
-                <span>Dominasi Gambar A</span>
-                <input type="range" id="blendRatio" min="1" max="9" value="5">
-                <span>Dominasi Gambar B</span>
-            </div>
-
+        <div class="glitch-engine-panel">
+            <div class="engine-title">Mekanisme Kerusakan Data (Glitch Engines)</div>
             <div class="control-group">
-                <button id="btnSwap" class="btn btn-swap" disabled>⇄ Tukar Posisi</button>
-                <button id="btnMerge" class="btn btn-merge" disabled>⚡ Safe Merge (Anyam Kode)</button>
+                <button id="btnEngine1" class="btn" disabled>Mesin 1: Tukar Silang "/" (Ide User)</button>
+                <button id="btnEngine2" class="btn" disabled>Mesin 2: Tukar Blok Besar</button>
+                <button id="btnReset" class="btn" style="border-color: var(--accent-blue);" disabled>Restore Asli</button>
             </div>
-            
-            <div class="info-note">
-                <strong>Tips Safe Merge:</strong> Fitur ini menganyam karakter Gambar A dan B secara selang-seling berdasarkan rasio dominasi, sambil otomatis mengunci ukuran asli dan tanda biner penutup (EOF) agar browser tidak mendeteksi file rusak.
-            </div>
+            <div class="status-bar" id="statusLog">Menunggu dua gambar diunggah...</div>
         </div>
+
     </div>
 
     <canvas id="hiddenCanvas" style="display:none;"></canvas>
 
     <script>
-        const SAFE_HEADER_PERCENTAGE = 0.15; 
+        const SAFE_PERCENT = 0.15; 
+        let originalDataA = "";
+        let originalDataB = "";
 
         const slots = {
-            A: {
-                upload: document.getElementById('uploadA'),
-                canvasBtn: document.getElementById('canvasBtnA'),
-                header: document.getElementById('headerA'),
-                editable: document.getElementById('editableA'),
-                preview: document.getElementById('previewA'),
-                countSlash: document.getElementById('countSlashA'),
-                size: document.getElementById('sizeA'),
-                eof: document.getElementById('eofA'),
-                label: 'Gambar A',
-                color: '#3b82f6'
-            },
-            B: {
-                upload: document.getElementById('uploadB'),
-                canvasBtn: document.getElementById('canvasBtnB'),
-                header: document.getElementById('headerB'),
-                editable: document.getElementById('editableB'),
-                preview: document.getElementById('previewB'),
-                countSlash: document.getElementById('countSlashB'),
-                size: document.getElementById('sizeB'),
-                eof: document.getElementById('eofB'),
-                label: 'Gambar B',
-                color: '#10b981'
-            }
+            A: { upload: document.getElementById('uploadA'), canvasBtn: document.getElementById('canvasBtnA'), header: document.getElementById('headerA'), editable: document.getElementById('editableA'), preview: document.getElementById('previewA'), color: '#00f3ff' },
+            B: { upload: document.getElementById('uploadB'), canvasBtn: document.getElementById('canvasBtnB'), header: document.getElementById('headerB'), editable: document.getElementById('editableB'), preview: document.getElementById('previewB'), color: '#39ff14' }
         };
 
-        const btnSwap = document.getElementById('btnSwap');
-        const btnMerge = document.getElementById('btnMerge');
-        const blendRatio = document.getElementById('blendRatio');
+        const ctx = document.getElementById('hiddenCanvas').getContext('2d');
         const hiddenCanvas = document.getElementById('hiddenCanvas');
-        const ctx = hiddenCanvas.getContext('2d');
+        const statusLog = document.getElementById('statusLog');
 
-        // --- 1. MENGGAMBAR TOMBOL LEBIH RAMPING DENGAN CANVAS ---
-        function drawCanvasButton(canvas, labelText, color, isFileLoaded = false) {
+        function drawBtn(canvas, text, color, loaded) {
             const c = canvas.getContext('2d');
-            canvas.width = canvas.offsetWidth * window.devicePixelRatio;
-            canvas.height = canvas.offsetHeight * window.devicePixelRatio;
-            c.scale(window.devicePixelRatio, window.devicePixelRatio);
-
-            const w = canvas.offsetWidth;
-            const h = canvas.offsetHeight;
-
-            let gradient = c.createLinearGradient(0, 0, w, h);
-            if (isFileLoaded) {
-                gradient.addColorStop(0, '#10b981');
-                gradient.addColorStop(1, '#059669');
-            } else {
-                gradient.addColorStop(0, color);
-                gradient.addColorStop(1, '#1e293b');
-            }
-
-            c.fillStyle = gradient;
-            c.beginPath();
-            c.roundRect(0, 0, w, h, 6);
-            c.fill();
-
-            // Border halus outline
-            c.strokeStyle = 'rgba(255,255,255,0.1)';
-            c.lineWidth = 1;
-            c.stroke();
-
-            // Teks ramping tengah
-            c.fillStyle = '#ffffff';
-            c.font = '600 12px Inter, system-ui, sans-serif';
-            c.textAlign = 'center';
-            c.textBaseline = 'middle';
-            
-            let text = isFileLoaded ? `✓ ${labelText} Dimuat` : `Pilih File ${labelText}`;
-            c.fillText(text, w / 2, h / 2);
+            canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+            c.fillStyle = loaded ? color : '#111';
+            c.fillRect(0,0, canvas.width, canvas.height);
+            if(!loaded) { c.strokeStyle = color; c.lineWidth = 2; c.strokeRect(1,1, canvas.width-2, canvas.height-2); }
+            c.fillStyle = loaded ? '#000' : color;
+            c.font = 'bold 12px monospace'; c.textAlign = 'center'; c.textBaseline = 'middle';
+            c.fillText(loaded ? `[ DATA ${text} TERMUAT ]` : `> UNGGAH GAMBAR ${text} <`, canvas.width/2, canvas.height/2);
         }
 
-        function initButtons() {
-            drawCanvasButton(slots.A.canvasBtn, slots.A.label, slots.A.color);
-            drawCanvasButton(slots.B.canvasBtn, slots.B.label, slots.B.color);
-        }
-        window.addEventListener('load', initButtons);
-        window.addEventListener('resize', () => {
-            drawCanvasButton(slots.A.canvasBtn, slots.A.label, slots.A.color, slots.A.upload.files.length > 0);
-            drawCanvasButton(slots.B.canvasBtn, slots.B.label, slots.B.color, slots.B.upload.files.length > 0);
-        });
+        window.onload = () => { drawBtn(slots.A.canvasBtn, 'A', slots.A.color, false); drawBtn(slots.B.canvasBtn, 'B', slots.B.color, false); };
 
-        // --- 2. DETEKSI & ANALISIS (EOF & Slash "/") ---
-        function analyzeData(id) {
-            const slot = slots[id];
-            const text = slot.editable.value;
-            
-            // Hitung jumlah karakter /
-            const slashCount = (text.match(/\//g) || []).length;
-            slot.countSlash.innerText = slashCount;
-
-            // Hitung total panjang data yang dapat diedit
-            slot.size.innerText = `${text.length.toLocaleString()} Chars`;
-
-            // Deteksi End of File (EOF) -> mengambil 8 karakter terakhir (umumnya biner padding "=" atau "==")
-            if (text.length > 0) {
-                const eofMarker = text.slice(-8);
-                slot.eof.innerText = `[${eofMarker}]`;
-            } else {
-                slot.eof.innerText = '-';
-            }
-        }
-
-        // --- 3. HANDLE UPLOAD ---
-        function setupUpload(id) {
-            const slot = slots[id];
-            slot.upload.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (!file) return;
-
+        function handleUpload(id) {
+            slots[id].upload.addEventListener('change', e => {
+                const file = e.target.files[0]; if(!file) return;
                 const reader = new FileReader();
-                reader.onload = function(event) {
+                reader.onload = ev => {
                     const img = new Image();
-                    img.onload = function() {
-                        hiddenCanvas.width = img.width;
-                        hiddenCanvas.height = img.height;
+                    img.onload = () => {
+                        hiddenCanvas.width = img.width; hiddenCanvas.height = img.height;
                         ctx.drawImage(img, 0, 0);
+                        const b64 = hiddenCanvas.toDataURL('image/jpeg', 0.9); // Pakai JPEG karena lebih mentolerir glitch dibanding PNG
+                        const split = Math.floor(b64.length * SAFE_PERCENT);
                         
-                        const fullBase64 = hiddenCanvas.toDataURL('image/png');
-                        const splitIndex = Math.floor(fullBase64.length * SAFE_HEADER_PERCENTAGE);
+                        slots[id].header.value = b64.substring(0, split);
+                        slots[id].editable.value = b64.substring(split);
                         
-                        slot.header.value = fullBase64.substring(0, splitIndex);
-                        slot.editable.value = fullBase64.substring(splitIndex);
-                        
-                        drawCanvasButton(slot.canvasBtn, slot.label, slot.color, true);
+                        if(id === 'A') originalDataA = slots[id].editable.value;
+                        if(id === 'B') originalDataB = slots[id].editable.value;
+
+                        drawBtn(slots[id].canvasBtn, id, slots[id].color, true);
                         updatePreview(id);
-                        checkActionsAvailability();
+                        checkReady();
                     };
-                    img.src = event.target.result;
+                    img.src = ev.target.result;
                 };
                 reader.readAsDataURL(file);
             });
-
-            slot.editable.addEventListener('input', () => {
-                updatePreview(id);
-            });
+            slots[id].editable.addEventListener('input', () => updatePreview(id));
         }
 
-        setupUpload('A');
-        setupUpload('B');
+        handleUpload('A'); handleUpload('B');
 
-        function updatePreview(id) {
-            const slot = slots[id];
-            slot.preview.src = slot.header.value + slot.editable.value;
-            analyzeData(id);
-        }
+        function updatePreview(id) { slots[id].preview.src = slots[id].header.value + slots[id].editable.value; }
 
-        function checkActionsAvailability() {
-            if (slots.A.upload.files.length > 0 && slots.B.upload.files.length > 0) {
-                btnSwap.disabled = false;
-                btnMerge.disabled = false;
+        function checkReady() {
+            if(slots.A.editable.value && slots.B.editable.value) {
+                document.querySelectorAll('.btn').forEach(b => b.disabled = false);
+                statusLog.innerText = "Mesin siap. Pilih metode pemisahan data.";
             }
         }
 
-        // --- 4. AKSI: TUKAR POSISI ---
-        btnSwap.addEventListener('click', () => {
-            const tempA = slots.A.editable.value;
-            slots.A.editable.value = slots.B.editable.value;
-            slots.B.editable.value = tempA;
+        function extractEOF(str) { return str.slice(-8); }
+        function removeEOF(str) { return str.slice(0, -8); }
 
-            updatePreview('A');
-            updatePreview('B');
-        });
+        // ==========================================
+        // MESIN 1: TEKNIK SPLIT BERDASARKAN TANDA "/" (Ide User)
+        // ==========================================
+        document.getElementById('btnEngine1').addEventListener('click', () => {
+            let dataA = removeEOF(slots.A.editable.value);
+            let dataB = removeEOF(slots.B.editable.value);
+            let eofA = extractEOF(slots.A.editable.value);
+            let eofB = extractEOF(slots.B.editable.value);
 
-        // --- 5. FITUR CANGGIH: SAFE MERGE (Menganyam Tanpa Merusak File) ---
-        btnMerge.addEventListener('click', () => {
-            const dataA = slots.A.editable.value;
-            const dataB = slots.B.editable.value;
-            const ratio = parseInt(blendRatio.value); // Nilai 1 s.d 9
-
-            if (!dataA || !dataB) return;
-
-            // Simpan EOF Penutup asli agar tidak rusak saat digabung
-            const eofA = dataA.slice(-12);
-            const eofB = dataB.slice(-12);
-
-            // Fungsi menganyam string berdasarkan porsi urutan karakter
-            function weaveStrings(baseStr, injectStr, bias, targetEof) {
-                let result = "";
-                let maxLen = baseStr.length; // Mengunci panjang file dasar agar render stabil
-                
-                for (let i = 0; i < maxLen - 12; i++) {
-                    // Penentuan pola anyaman berbasis modular ratio
-                    if (i % 10 < bias) {
-                        result += baseStr[i] || '';
-                    } else {
-                        // Jika kehabisan string inject, loop kembali datanya
-                        result += injectStr[i % injectStr.length] || baseStr[i];
-                    }
+            // Memecah array berdasarkan tanda slash
+            let arrA = dataA.split('/');
+            let arrB = dataB.split('/');
+            
+            let minLen = Math.min(arrA.length, arrB.length);
+            
+            // Menukar setiap segmen ke-2 (selang-seling)
+            for(let i = 0; i < minLen; i++) {
+                if(i % 2 === 0) {
+                    let temp = arrA[i];
+                    arrA[i] = arrB[i];
+                    arrB[i] = temp;
                 }
-                // Tempelkan kembali EOF asli di ujung akhir kode hasil anyaman
-                return result + targetEof;
             }
 
-            // Jalankan pencampuran anyaman silang
-            slots.A.editable.value = weaveStrings(dataA, dataB, 10 - ratio, eofA);
-            slots.B.editable.value = weaveStrings(dataB, dataA, ratio, eofB);
-
-            // Refresh tampilan pratinjau hasil manipulasi
-            updatePreview('A');
-            updatePreview('B');
+            slots.A.editable.value = arrA.join('/') + eofA;
+            slots.B.editable.value = arrB.join('/') + eofB;
+            
+            updatePreview('A'); updatePreview('B');
+            statusLog.innerText = `Glitch diterapkan: Menukar ${Math.floor(minLen/2)} segmen yang dipisahkan oleh "/"`;
         });
+
+        // ==========================================
+        // MESIN 2: TEKNIK TUKAR BLOK BESAR (Lebih Stabil)
+        // ==========================================
+        document.getElementById('btnEngine2').addEventListener('click', () => {
+            let dataA = removeEOF(slots.A.editable.value);
+            let dataB = removeEOF(slots.B.editable.value);
+            let eofA = extractEOF(slots.A.editable.value);
+            let eofB = extractEOF(slots.B.editable.value);
+
+            // Potong menjadi 20 blok besar
+            const chunks = 20; 
+            const chunkSizeA = Math.floor(dataA.length / chunks);
+            const chunkSizeB = Math.floor(dataB.length / chunks);
+
+            let newA = ""; let newB = "";
+
+            for(let i = 0; i < chunks; i++) {
+                let pieceA = dataA.substr(i * chunkSizeA, chunkSizeA);
+                let pieceB = dataB.substr(i * chunkSizeB, chunkSizeB);
+
+                // Tukar blok jika nomor blok ganjil
+                if(i % 2 !== 0) {
+                    newA += pieceB;
+                    newB += pieceA;
+                } else {
+                    newA += pieceA;
+                    newB += pieceB;
+                }
+            }
+
+            // Tambahkan sisa data yang mungkin tertinggal karena pembulatan
+            newA += dataA.slice(chunks * chunkSizeA) + eofA;
+            newB += dataB.slice(chunks * chunkSizeB) + eofB;
+
+            slots.A.editable.value = newA;
+            slots.B.editable.value = newB;
+
+            updatePreview('A'); updatePreview('B');
+            statusLog.innerText = `Glitch diterapkan: Menukar blok data biner besar.`;
+        });
+
+        // Reset
+        document.getElementById('btnReset').addEventListener('click', () => {
+            slots.A.editable.value = originalDataA;
+            slots.B.editable.value = originalDataB;
+            updatePreview('A'); updatePreview('B');
+            statusLog.innerText = "Data dikembalikan ke bentuk asli.";
+        });
+
     </script>
 </body>
 </html>
