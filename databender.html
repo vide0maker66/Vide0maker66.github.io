@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Base64 Data Bender v3.0</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --accent-color: #3b82f6;
+            --accent-hover: #2563eb;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            background: var(--panel-bg);
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        .header-bar {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header-bar h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            letter-spacing: -0.025em;
+        }
+
+        .workspace {
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        /* Grid untuk Dua Gambar */
+        .grid-slots {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .grid-slots {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .slot {
+            background: rgba(0, 0, 0, 0.15);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .slot-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: var(--text-main);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Container Canvas untuk Tombol Upload */
+        .upload-canvas-wrapper {
+            position: relative;
+            cursor: pointer;
+            width: 100%;
+            height: 70px;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
+
+        .upload-canvas-wrapper:hover {
+            transform: translateY(-2px);
+        }
+
+        .upload-canvas-wrapper input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 2;
+        }
+
+        .upload-btn-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        textarea {
+            width: 100%;
+            box-sizing: border-box;
+            background: #090d16;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: #10b981; /* Warna hijau code retro-modern */
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 11px;
+            padding: 10px;
+            resize: vertical;
+        }
+
+        textarea[readonly] {
+            color: var(--text-muted);
+            background: rgba(0,0,0,0.3);
+            cursor: not-allowed;
+        }
+
+        .header-area { height: 50px; }
+        .editable-area { height: 120px; }
+
+        /* Tombol Aksi Utama (Swap) */
+        .action-area {
+            display: flex;
+            justify-content: center;
+            margin: 10px 0;
+        }
+
+        .btn-swap {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-swap:hover {
+            background: var(--accent-hover);
+            transform: scale(1.02);
+        }
+
+        .btn-swap:disabled {
+            background: #475569;
+            box-shadow: none;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        /* Preview Area */
+        .image-container {
+            text-align: center;
+            background-color: #090d16;
+            height: 250px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .note {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 5px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header-bar">
+            <h1>Base64 Data Bender v3.0</h1>
+        </div>
+        
+        <div class="workspace">
+            <div class="grid-slots">
+                
+                <div class="slot" id="slot1">
+                    <div class="slot-title">Gambar A</div>
+                    
+                    <div class="upload-canvas-wrapper">
+                        <input type="file" id="uploadA" accept="image/*">
+                        <canvas id="canvasBtnA" class="upload-btn-canvas"></canvas>
+                    </div>
+
+                    <div>
+                        <label>Header Metadata (Dikunci)</label>
+                        <textarea id="headerA" class="header-area" readonly placeholder="Header Gambar A..."></textarea>
+                    </div>
+                    
+                    <div>
+                        <label>Data Piksel (Editable)</label>
+                        <textarea id="editableA" class="editable-area" placeholder="Data piksel Gambar A..."></textarea>
+                    </div>
+
+                    <div>
+                        <label>Pratinjau Real-Time A</label>
+                        <div class="image-container">
+                            <img id="previewA" alt="Pratinjau Gambar A">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="slot" id="slot2">
+                    <div class="slot-title">Gambar B</div>
+                    
+                    <div class="upload-canvas-wrapper">
+                        <input type="file" id="uploadB" accept="image/*">
+                        <canvas id="canvasBtnB" class="upload-btn-canvas"></canvas>
+                    </div>
+
+                    <div>
+                        <label>Header Metadata (Dikunci)</label>
+                        <textarea id="headerB" class="header-area" readonly placeholder="Header Gambar B..."></textarea>
+                    </div>
+                    
+                    <div>
+                        <label>Data Piksel (Editable)</label>
+                        <textarea id="editableB" class="editable-area" placeholder="Data piksel Gambar B..."></textarea>
+                    </div>
+
+                    <div>
+                        <label>Pratinjau Real-Time B</label>
+                        <div class="image-container">
+                            <img id="previewB" alt="Pratinjau Gambar B">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="action-area">
+                <button id="btnSwap" class="btn-swap" disabled>⇄ Tukar Data Piksel (Bend)</button>
+            </div>
+            <div class="note" style="text-align: center;">
+                *Unggah kedua gambar terlebih dahulu, lalu tekan tombol Tukar untuk menyilangkan data piksel mereka! Kamu tetap bisa mengedit kode setelah ditukar.
+            </div>
+        </div>
+    </div>
+
+    <canvas id="hiddenCanvas" style="display:none;"></canvas>
+
+    <script>
+        // Mengunci 15% awal string base64 demi keamanan header file
+        const SAFE_HEADER_PERCENTAGE = 0.15; 
+
+        // Element Object Mapping untuk mempermudah handling dua slot
+        const slots = {
+            A: {
+                upload: document.getElementById('uploadA'),
+                canvasBtn: document.getElementById('canvasBtnA'),
+                header: document.getElementById('headerA'),
+                editable: document.getElementById('editableA'),
+                preview: document.getElementById('previewA'),
+                label: 'Gambar A'
+            },
+            B: {
+                upload: document.getElementById('uploadB'),
+                canvasBtn: document.getElementById('canvasBtnB'),
+                header: document.getElementById('headerB'),
+                editable: document.getElementById('editableB'),
+                preview: document.getElementById('previewB'),
+                label: 'Gambar B'
+            }
+        };
+
+        const btnSwap = document.getElementById('btnSwap');
+        const hiddenCanvas = document.getElementById('hiddenCanvas');
+        const ctx = hiddenCanvas.getContext('2d');
+
+        // --- 1. MENGGAMBAR TOMBOL DENGAN CANVAS ---
+        function drawCanvasButton(canvas, labelText, isFileLoaded = false) {
+            const c = canvas.getContext('2d');
+            // Menyesuaikan resolusi internal canvas dengan ukuran display CSS-nya
+            canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+            canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+            c.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            const w = canvas.offsetWidth;
+            const h = canvas.offsetHeight;
+
+            // Efek Background
+            let gradient = c.createLinearGradient(0, 0, w, h);
+            if (isFileLoaded) {
+                gradient.addColorStop(0, '#10b981'); // Hijau jika sukses terisi
+                gradient.addColorStop(1, '#059669');
+            } else {
+                gradient.addColorStop(0, '#3b82f6'); // Biru default modern
+                gradient.addColorStop(1, '#1d4ed8');
+            }
+
+            c.fillStyle = gradient;
+            c.beginPath();
+            c.roundRect(0, 0, w, h, 8); // Membuat rounded corner
+            c.fill();
+
+            // Teks di dalam Canvas
+            c.fillStyle = '#ffffff';
+            c.font = 'bold 14px Inter, system-ui, sans-serif';
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
+            
+            let text = isFileLoaded ? `✓ ${labelText} Siap` : ` Pilih ${labelText}`;
+            c.fillText(text, w / 2, h / 2);
+        }
+
+        // Inisialisasi awal bentuk tombol canvas
+        window.addEventListener('load', () => {
+            drawCanvasButton(slots.A.canvasBtn, slots.A.label);
+            drawCanvasButton(slots.B.canvasBtn, slots.B.label);
+        });
+
+        // Merender ulang jika window di-resize agar canvas tidak blur
+        window.addEventListener('resize', () => {
+            drawCanvasButton(slots.A.canvasBtn, slots.A.label, slots.A.upload.files.length > 0);
+            drawCanvasButton(slots.B.canvasBtn, slots.B.label, slots.B.upload.files.length > 0);
+        });
+
+
+        // --- 2. PROSES UNGGAH & EKSTRAKSI DATA ---
+        function setupUploadHandler(id) {
+            const slot = slots[id];
+            slot.upload.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        hiddenCanvas.width = img.width;
+                        hiddenCanvas.height = img.height;
+                        ctx.drawImage(img, 0, 0);
+                        
+                        // Konversi ke format PNG Base64
+                        const fullBase64 = hiddenCanvas.toDataURL('image/png');
+                        
+                        // Pisahkan menjadi bagian aman (Header) dan bagian Glitch (Editable)
+                        const splitIndex = Math.floor(fullBase64.length * SAFE_HEADER_PERCENTAGE);
+                        
+                        slot.header.value = fullBase64.substring(0, splitIndex);
+                        slot.editable.value = fullBase64.substring(splitIndex);
+                        
+                        // Perbarui visual tombol & pratinjau gambar
+                        drawCanvasButton(slot.canvasBtn, slot.label, true);
+                        updatePreview(id);
+                        checkSwapCapability();
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+
+            // Mekanisme Real-time update saat kode diketik manual
+            slot.editable.addEventListener('input', () => updatePreview(id));
+        }
+
+        setupUploadHandler('A');
+        setupUploadHandler('B');
+
+
+        // --- 3. RE-COMBINE & UPDATE PREVIEW ---
+        function updatePreview(id) {
+            const slot = slots[id];
+            // Gabungkan kembali header asli dengan data piksel (yang mungkin sudah diacak)
+            slot.preview.src = slot.header.value + slot.editable.value;
+        }
+
+        // Memeriksa apakah kedua gambar telah diunggah untuk mengaktifkan tombol swap
+        function checkSwapCapability() {
+            if (slots.A.upload.files.length > 0 && slots.B.upload.files.length > 0) {
+                btnSwap.disabled = false;
+            }
+        }
+
+
+        // --- 4. FITUR UTAMA: TUKAR DATA PIKSEL ---
+        btnSwap.addEventListener('click', () => {
+            const dataPikselA = slots.A.editable.value;
+            const dataPikselB = slots.B.editable.value;
+
+            // Tukar isi value di dalam textarea editable
+            slots.A.editable.value = dataPikselB;
+            slots.B.editable.value = dataPikselA;
+
+            // Jalankan update preview untuk melihat hasil glitch silang!
+            updatePreview('A');
+            updatePreview('B');
+        });
+    </script>
+</body>
+</html>
